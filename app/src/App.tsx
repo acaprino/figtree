@@ -127,12 +127,14 @@ function AppContent() {
               style={isTerminal ? { display: isActive ? "flex" : "none", opacity: 1, visibility: "visible" } : undefined}
             >
               {tab.type === "new-tab" ? (
-                <NewTabPage
-                  tabId={tab.id}
-                  onLaunch={handleLaunch}
-                  onRequestClose={closeTab}
-                  isActive={isActive}
-                />
+                <ErrorBoundary tabId={tab.id} onClose={closeTab}>
+                  <NewTabPage
+                    tabId={tab.id}
+                    onLaunch={handleLaunch}
+                    onRequestClose={closeTab}
+                    isActive={isActive}
+                  />
+                </ErrorBoundary>
               ) : (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
                   <Terminal

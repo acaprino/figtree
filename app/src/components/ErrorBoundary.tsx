@@ -9,21 +9,41 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  retryKey: number;
 }
+
+const btnStyle: React.CSSProperties = {
+  padding: "6px 16px",
+  background: "var(--surface, #313244)",
+  border: "1px solid var(--overlay0, #6c7086)",
+  borderRadius: "4px",
+  color: "var(--text, #cdd6f4)",
+  cursor: "pointer",
+  fontSize: "13px",
+  fontFamily: "inherit",
+};
 
 export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, retryKey: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("Terminal crashed:", error, info.componentStack);
+    console.error(`Tab ${this.props.tabId} crashed:`, error, info.componentStack);
   }
+
+  private handleRetry = () => {
+    this.setState((prev) => ({
+      hasError: false,
+      error: null,
+      retryKey: prev.retryKey + 1,
+    }));
+  };
 
   render() {
     if (this.state.hasError) {
@@ -40,7 +60,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           padding: "24px",
         }}>
           <div style={{ fontSize: "16px", fontWeight: "bold" }}>
-            Terminal failed to initialize
+            This tab crashed
           </div>
           <div style={{
             fontSize: "12px",
@@ -51,26 +71,19 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           }}>
             {this.state.error?.message ?? "An unexpected error occurred."}
           </div>
-          <button
-            onClick={() => this.props.onClose(this.props.tabId)}
-            style={{
-              marginTop: "8px",
-              padding: "6px 16px",
-              background: "var(--surface, #313244)",
-              border: "1px solid var(--accent, #cba6f7)",
-              borderRadius: "4px",
-              color: "var(--text, #cdd6f4)",
-              cursor: "pointer",
-              fontSize: "13px",
-              fontFamily: "inherit",
-            }}
-          >
-            Close Tab
-          </button>
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <button onClick={this.handleRetry} style={{ ...btnStyle, borderColor: "var(--accent, #cba6f7)" }}>
+              Retry
+            </button>
+            <button onClick={() => this.props.onClose(this.props.tabId)} style={btnStyle}>
+              Close Tab
+            </button>
+          </div>
         </div>
       );
     }
 
-    return this.props.children;
+    // retryKey forces React to remount children on retry, giving a clean slate
+    return <div key={this.state.retryKey} style={{ display: "contents" }}>{this.props.children}</div>;
   }
 }

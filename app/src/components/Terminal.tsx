@@ -96,10 +96,14 @@ export default memo(function Terminal({
 
     try {
       const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => webglAddon.dispose());
+      webglAddon.onContextLoss(() => {
+        // Gracefully fall back to canvas renderer on GPU context loss.
+        // This prevents a single tab's WebGL issue from affecting others.
+        try { webglAddon.dispose(); } catch { /* already disposed */ }
+      });
       xterm.loadAddon(webglAddon);
     } catch {
-      // Canvas renderer fallback
+      // Canvas renderer fallback — WebGL not available or failed to init
     }
 
     xterm.attachCustomKeyEventHandler((event: KeyboardEvent) => {
@@ -116,7 +120,7 @@ export default memo(function Terminal({
         return;
       }
       if (!sessionIdRef.current) return;
-      writePty(sessionIdRef.current, data);
+      writePty(sessionIdRef.current, data).catch(() => {});
     });
 
     xtermRef.current = xterm;
@@ -132,7 +136,7 @@ export default memo(function Terminal({
         lastCols = cols;
         lastRows = rows;
         if (sessionIdRef.current) {
-          resizePty(sessionIdRef.current, cols, rows);
+          resizePty(sessionIdRef.current, cols, rows).catch(() => {});
         }
       }
     };
@@ -191,7 +195,7 @@ export default memo(function Terminal({
 
     const heartbeatInterval = setInterval(() => {
       if (sessionIdRef.current && !exitedRef.current) {
-        sendHeartbeat(sessionIdRef.current);
+        sendHeartbeat(sessionIdRef.current).catch(() => {});
       }
     }, 5000);
 
@@ -208,7 +212,7 @@ export default memo(function Terminal({
       const paths = safePaths
         .map((p) => (p.includes(" ") ? `"${p}"` : p))
         .join(" ");
-      writePty(sessionIdRef.current, paths + " ");
+      writePty(sessionIdRef.current, paths + " ").catch(() => {});
     }).then((unlisten) => {
       if (cancelled) { unlisten(); return; }
       unlistenDragDrop = unlisten;
