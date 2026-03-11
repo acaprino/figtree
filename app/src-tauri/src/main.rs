@@ -14,6 +14,25 @@ use session::SessionRegistry;
 
 fn main() {
     logging::init();
+
+    // Global panic hook: log panics from any thread to the log file.
+    // Without this, a panic in a background thread (reaper, PTY reader, etc.)
+    // dies silently and can leave the process in an inconsistent state.
+    std::panic::set_hook(Box::new(|info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_default();
+        let payload = if let Some(s) = info.payload().downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "unknown payload".to_string()
+        };
+        log_error!("PANIC at {location}: {payload}");
+    }));
+
     log_info!("Initializing session registry");
 
     let registry = Arc::new(

@@ -173,7 +173,7 @@ export default function NewTabPage({ tabId, onLaunch, onRequestClose, isActive }
         case "F6":
           e.preventDefault();
           if (currentProjects[selectedIdxRef.current]) {
-            invoke("open_in_explorer", { path: currentProjects[selectedIdxRef.current].path });
+            invoke("open_in_explorer", { path: currentProjects[selectedIdxRef.current].path }).catch(() => {});
           }
           break;
         case "F7":

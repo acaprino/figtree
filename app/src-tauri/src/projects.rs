@@ -218,6 +218,15 @@ pub fn record_usage(project_path: &str) -> io::Result<()> {
     save_usage(&usage)
 }
 
+/// Maximum bytes to read from git stdout before giving up.
+/// This prevents OOM when a repo has massive untracked/dirty output.
+const GIT_OUTPUT_LIMIT: usize = 512 * 1024; // 512 KB
+
+/// Maximum time to wait for a git command before killing it.
+/// Prevents a hung git (e.g., on an unresponsive network share) from blocking
+/// the entire project scan.
+const GIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 fn scan_one_project(path: &str, label: Option<&String>) -> Option<ProjectInfo> {
     let p = Path::new(path);
     if !p.is_dir() {
@@ -234,16 +243,49 @@ fn scan_one_project(path: &str, label: Option<&String>) -> Option<ProjectInfo> {
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .and_then(|child| child.wait_with_output())
     {
-        Ok(output) if output.status.success() => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let branch = stdout
-                .lines()
-                .find(|l| l.starts_with("# branch.head "))
-                .map(|l| l.trim_start_matches("# branch.head ").to_string());
-            let dirty = stdout.lines().any(|l| !l.starts_with('#'));
-            (branch, dirty)
+        Ok(mut child) => {
+            // Read stdout in a dedicated thread so we can enforce a timeout.
+            // BufReader::lines() blocks on ReadFile; if git hangs (e.g., on a
+            // network share), we'd block the scan thread forever without this.
+            let stdout_pipe = child.stdout.take();
+            let (tx, rx) = std::sync::mpsc::channel();
+            thread::spawn(move || {
+                let Some(stdout) = stdout_pipe else {
+                    let _ = tx.send((None, false));
+                    return;
+                };
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(stdout);
+                let mut branch: Option<String> = None;
+                let mut dirty = false;
+                let mut total_bytes: usize = 0;
+
+                for line in reader.lines() {
+                    let line = match line {
+                        Ok(l) => l,
+                        Err(_) => break,
+                    };
+                    total_bytes += line.len() + 1;
+                    if line.starts_with("# branch.head ") {
+                        branch = Some(line.trim_start_matches("# branch.head ").to_string());
+                    } else if !line.starts_with('#') && !line.is_empty() {
+                        dirty = true;
+                    }
+                    if (branch.is_some() && dirty) || total_bytes > GIT_OUTPUT_LIMIT {
+                        break;
+                    }
+                }
+                let _ = tx.send((branch, dirty));
+            });
+
+            // Wait for the reader with a timeout. If git hangs, kill it
+            // and the broken pipe will unblock the reader thread.
+            let result = rx.recv_timeout(GIT_TIMEOUT).unwrap_or((None, false));
+
+            let _ = child.kill();
+            let _ = child.wait();
+            result
         }
         _ => (None, false),
     };
@@ -298,9 +340,14 @@ pub fn scan_projects(project_dirs: &[String], labels: &HashMap<String, String>) 
                 let label = labels.get(&dir).cloned();
                 let tx = tx.clone();
                 thread::spawn(move || {
-                    if let Some(info) = scan_one_project(&dir, label.as_ref()) {
-                        let _ = tx.send(info);
-                    }
+                    // catch_unwind: a single problematic project must not
+                    // abort the entire scan. Panic is logged by the global hook.
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        if let Some(info) = scan_one_project(&dir, label.as_ref()) {
+                            let _ = tx.send(info);
+                        }
+                    }));
+                    let _ = result; // ignore panic — already logged
                 })
             })
             .collect();

@@ -80,45 +80,61 @@ impl SessionRegistry {
         // remaining handles once no other references exist.
         let pty_reader = Arc::clone(&pty);
         let channel = on_event.clone();
+        let reader_sid = session_id.clone();
         thread::spawn(move || {
-            let buf_size = 4096;
-            let mut buf = [0u8; 4096];
-            let mut accum: Vec<u8> = Vec::with_capacity(8192);
-            let mut last_flush = Instant::now();
-            loop {
-                match pty_reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        accum.extend_from_slice(&buf[..n]);
-                        let elapsed = last_flush.elapsed() >= Duration::from_millis(OUTPUT_BATCH_MS);
-                        let full = accum.len() >= 8192;
-                        // Flush if: batch timer expired, buffer is full, or we got
-                        // a partial read (less than buffer size) indicating the
-                        // process is idle and we should display output promptly.
-                        let partial = n < buf_size;
-                        if elapsed || full || partial {
-                            let data = STANDARD.encode(&std::mem::take(&mut accum));
-                            if channel.send(PtyEvent::Output { data }).is_err() {
-                                break;
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let buf_size = 4096;
+                let mut buf = [0u8; 4096];
+                let mut accum: Vec<u8> = Vec::with_capacity(8192);
+                let mut last_flush = Instant::now();
+                loop {
+                    match pty_reader.read(&mut buf) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            accum.extend_from_slice(&buf[..n]);
+                            let elapsed = last_flush.elapsed() >= Duration::from_millis(OUTPUT_BATCH_MS);
+                            let full = accum.len() >= 8192;
+                            // Flush if: batch timer expired, buffer is full, or we got
+                            // a partial read (less than buffer size) indicating the
+                            // process is idle and we should display output promptly.
+                            let partial = n < buf_size;
+                            if elapsed || full || partial {
+                                let data = STANDARD.encode(&std::mem::take(&mut accum));
+                                if channel.send(PtyEvent::Output { data }).is_err() {
+                                    break;
+                                }
+                                last_flush = Instant::now();
                             }
-                            last_flush = Instant::now();
                         }
+                        Err(_) => break,
                     }
-                    Err(_) => break,
                 }
-            }
-            if !accum.is_empty() {
-                let data = STANDARD.encode(&accum);
-                let _ = channel.send(PtyEvent::Output { data });
+                if !accum.is_empty() {
+                    let data = STANDARD.encode(&accum);
+                    let _ = channel.send(PtyEvent::Output { data });
+                }
+            }));
+            if result.is_err() {
+                // Send an exit event so the frontend knows this tab is dead,
+                // rather than leaving it in a zombie state.
+                let _ = channel.send(PtyEvent::Exit { code: -1 });
+                eprintln!("PTY reader thread panicked for session {reader_sid}");
             }
         });
 
         // Exit watcher thread
         let pty_waiter = Arc::clone(&pty);
         let exit_channel = on_event;
+        let waiter_sid = session_id.clone();
         thread::spawn(move || {
-            let code = pty_waiter.wait_for_exit().unwrap_or(-1);
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                pty_waiter.wait_for_exit().unwrap_or(-1)
+            }));
+            let code = result.unwrap_or(-1);
             let _ = exit_channel.send(PtyEvent::Exit { code });
+            if result.is_err() {
+                eprintln!("PTY exit-watcher thread panicked for session {waiter_sid}");
+            }
         });
 
         sessions.insert(
@@ -187,16 +203,24 @@ impl SessionRegistry {
         thread::spawn(move || {
             loop {
                 thread::sleep(Duration::from_secs(10));
-                let mut sessions = registry.sessions.lock().unwrap_or_else(|e| e.into_inner());
-                let stale: Vec<String> = sessions
-                    .iter()
-                    .filter(|(_, entry)| entry.last_heartbeat.elapsed() > Duration::from_secs(30))
-                    .map(|(id, _)| id.clone())
-                    .collect();
-                for id in stale {
-                    if let Some(entry) = sessions.remove(&id) {
-                        entry.pty.kill();
+                // catch_unwind ensures the reaper never dies from a panic.
+                // If one iteration panics, we log and continue the next cycle.
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut sessions = registry.sessions.lock().unwrap_or_else(|e| e.into_inner());
+                    let stale: Vec<String> = sessions
+                        .iter()
+                        .filter(|(_, entry)| entry.last_heartbeat.elapsed() > Duration::from_secs(30))
+                        .map(|(id, _)| id.clone())
+                        .collect();
+                    for id in stale {
+                        if let Some(entry) = sessions.remove(&id) {
+                            entry.pty.kill();
+                        }
                     }
+                }));
+                if result.is_err() {
+                    // Panic was already logged by the global panic hook.
+                    // Continue reaping — this thread must not die.
                 }
             }
         });
