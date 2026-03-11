@@ -143,12 +143,13 @@ impl SessionRegistry {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 pty_waiter.wait_for_exit().unwrap_or(-1)
             }));
+            let panicked = result.is_err();
             let code = result.unwrap_or(-1);
             // Only send Exit if the reader-panic path hasn't already done so.
             if !waiter_exit_sent.swap(true, Ordering::SeqCst) {
                 let _ = exit_channel.send(PtyEvent::Exit { code });
             }
-            if result.is_err() {
+            if panicked {
                 eprintln!("PTY exit-watcher thread panicked for session {waiter_sid}");
             }
         });
