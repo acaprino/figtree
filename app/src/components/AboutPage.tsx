@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from "react";
+import { memo, useState, useEffect, useMemo } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { THEMES } from "../types";
 import "./AboutPage.css";
@@ -22,10 +22,13 @@ interface AsciiCell {
 
 function imageToAscii(img: HTMLImageElement, cols: number): AsciiCell[][] {
   const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d")!;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return [];
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
   ctx.drawImage(img, 0, 0);
+
+  if (cols <= 0 || img.naturalWidth <= 0 || img.naturalHeight <= 0) return [];
 
   const aspect = 0.5; // monospace chars are ~2x tall as wide
   const cellW = img.naturalWidth / cols;
@@ -55,6 +58,11 @@ function imageToAscii(img: HTMLImageElement, cols: number): AsciiCell[][] {
         }
       }
 
+      if (count === 0) {
+        line.push({ char: " ", r: 0, g: 0, b: 0, a: 0 });
+        continue;
+      }
+
       const r = Math.round(rSum / count);
       const g = Math.round(gSum / count);
       const b = Math.round(bSum / count);
@@ -72,12 +80,13 @@ function imageToAscii(img: HTMLImageElement, cols: number): AsciiCell[][] {
   return grid;
 }
 
-function AsciiLogo({ cols = 60 }: { cols?: number }) {
+const AsciiLogo = memo(function AsciiLogo({ cols = 60 }: { cols?: number }) {
   const [grid, setGrid] = useState<AsciiCell[][] | null>(null);
 
   useEffect(() => {
     const img = new Image();
     img.onload = () => setGrid(imageToAscii(img, cols));
+    img.onerror = () => setGrid([]);
     img.src = "/icon.png";
   }, [cols]);
 
@@ -102,7 +111,7 @@ function AsciiLogo({ cols = 60 }: { cols?: number }) {
       </pre>
     </div>
   );
-}
+});
 
 function Banner({ title }: { title: string }) {
   return (
