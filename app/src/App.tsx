@@ -5,6 +5,7 @@ import { ProjectsProvider, useProjectsContext } from "./contexts/ProjectsContext
 import TabBar from "./components/TabBar";
 import Terminal from "./components/Terminal";
 import NewTabPage from "./components/NewTabPage";
+import AboutPage from "./components/AboutPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
@@ -17,6 +18,7 @@ function AppContent() {
     activeTab,
     activeTabId,
     addTab,
+    toggleAboutTab,
     closeTab,
     updateTab,
     activateTab,
@@ -56,12 +58,15 @@ function AppContent() {
       } else if (e.ctrlKey && e.shiftKey && e.key === "Tab") {
         e.preventDefault();
         prevTab();
+      } else if (e.key === "F12") {
+        e.preventDefault();
+        toggleAboutTab();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addTab, closeTab, activeTabId, nextTab, prevTab]);
+  }, [addTab, toggleAboutTab, closeTab, activeTabId, nextTab, prevTab]);
 
   const handleLaunch = useCallback(
     (tabId: string, projectPath: string, projectName: string, toolIdx: number, modelIdx: number, effortIdx: number, skipPerms: boolean) => {
@@ -131,6 +136,14 @@ function AppContent() {
                   <NewTabPage
                     tabId={tab.id}
                     onLaunch={handleLaunch}
+                    onRequestClose={closeTab}
+                    isActive={isActive}
+                  />
+                </ErrorBoundary>
+              ) : tab.type === "about" ? (
+                <ErrorBoundary tabId={tab.id} onClose={closeTab}>
+                  <AboutPage
+                    tabId={tab.id}
                     onRequestClose={closeTab}
                     isActive={isActive}
                   />

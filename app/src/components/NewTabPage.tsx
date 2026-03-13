@@ -278,6 +278,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, isActive }: NewTabPagePro
           <span><kbd>F9</kbd> theme</span>
           <span><kbd>F10</kbd> quick</span>
           <span><kbd>F11</kbd> font</span>
+          <span><kbd>F12</kbd> about</span>
         </span>
       </div>
       <ProjectList
