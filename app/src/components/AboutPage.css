@@ -1,19 +1,16 @@
 .about-page {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   height: 100%;
   background: var(--bg);
   overflow: auto;
-  padding: var(--space-4);
+  padding: var(--space-6) var(--space-4);
 }
 
 .about-terminal {
-  background: var(--mantle);
-  border: 1px solid var(--overlay0);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
-  max-width: 720px;
+  padding: var(--space-4) var(--space-6);
+  max-width: 700px;
   width: 100%;
   overflow-x: auto;
   user-select: text;
@@ -21,35 +18,76 @@
 
 .about-logo {
   color: var(--accent);
-  font-size: 8px; /* Fixed size required for Unicode block art alignment */
-  line-height: 1.1;
+  font-size: var(--text-xs);
+  line-height: 1.2;
   font-family: "Cascadia Code", "Consolas", monospace;
   white-space: pre;
   text-align: center;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-6);
 }
 
-.about-info {
-  color: var(--text-dim);
+/* ━━━ GSD Banner ━━━ */
+.gsd-banner {
+  margin: var(--space-6) 0 var(--space-4);
+}
+
+.gsd-banner-bar {
+  height: 2px;
+  background: var(--overlay0);
+}
+
+.gsd-banner-title {
+  color: var(--text);
+  font-family: "Cascadia Code", "Consolas", monospace;
   font-size: var(--text-sm);
-  line-height: 1.5;
-  font-family: "Cascadia Code", "Consolas", monospace;
-  white-space: pre;
+  font-weight: bold;
+  padding: var(--space-2) 0;
+  letter-spacing: 0.5px;
 }
 
-.about-footer {
-  text-align: center;
-  color: var(--text-dim);
-  font-size: var(--text-xs);
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--overlay0);
-}
-
-.about-footer kbd {
-  background: var(--surface);
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
+/* ╔═══╗ GSD Box ╚═══╝ */
+.gsd-box {
   border: 1px solid var(--overlay0);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+}
+
+.gsd-box pre {
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  white-space: pre;
+  margin: 0;
+}
+
+/* ─── Separator ─── */
+.gsd-sep {
+  height: 1px;
+  background: var(--overlay0);
+  margin: var(--space-3) 0;
+  opacity: 0.5;
+}
+
+/* Plain text blocks */
+.gsd-text {
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  white-space: pre;
+  margin: var(--space-2) 0;
+}
+
+/* Footer */
+.gsd-footer {
+  margin-top: var(--space-6);
+}
+
+.gsd-footer-text {
+  color: var(--text-dim);
+  font-family: "Cascadia Code", "Consolas", monospace;
+  font-size: var(--text-sm);
+  padding: var(--space-2) 0;
+  text-align: center;
 }
