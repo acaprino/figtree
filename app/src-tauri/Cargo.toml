@@ -24,6 +24,8 @@ dirs = "6"
 regex-lite = "0.1"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-shell = "2"
+png = "0.17"
+arboard = { version = "3", features = ["image-data"] }
 
 raw-window-handle = "0.6"
 

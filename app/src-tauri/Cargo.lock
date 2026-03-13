@@ -45,8 +45,9 @@ dependencies = [
 name = "anvil"
 version = "1.0.0"
 dependencies = [
- "base64 0.22.1",
+ "arboard",
  "dirs",
+ "png 0.17.16",
  "raw-window-handle",
  "regex-lite",
  "serde",

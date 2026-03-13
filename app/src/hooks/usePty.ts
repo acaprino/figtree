@@ -53,3 +53,7 @@ export async function killSession(sessionId: string): Promise<void> {
 export async function sendHeartbeat(sessionId: string): Promise<void> {
   await invoke("heartbeat", { sessionId });
 }
+
+export async function saveClipboardImage(): Promise<string> {
+  return invoke<string>("save_clipboard_image");
+}

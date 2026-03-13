@@ -65,6 +65,7 @@ fn main() {
             commands::save_session,
             commands::load_session,
             commands::set_window_corner_preference,
+            commands::save_clipboard_image,
         ])
         .on_window_event(move |window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

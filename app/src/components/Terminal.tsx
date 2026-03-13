@@ -4,10 +4,34 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { spawnClaude, writePty, resizePty, sendHeartbeat, killSession } from "../hooks/usePty";
+import { spawnClaude, writePty, resizePty, sendHeartbeat, killSession, saveClipboardImage } from "../hooks/usePty";
 import { getXtermTheme } from "../themes";
 import "@xterm/xterm/css/xterm.css";
 import "./Terminal.css";
+
+/** Replace common non-ASCII characters with ASCII equivalents and strip control chars.
+ *  This prevents encoding issues when pasting text from editors, web pages, or Word docs. */
+function sanitizePastedText(text: string): string {
+  return text
+    // Curly/smart quotes → straight quotes
+    .replace(/[\u2018\u2019\u201A\u2039\u203A]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g, '"')
+    // Dashes → hyphen/double-hyphen
+    .replace(/\u2014/g, "--")  // em dash
+    .replace(/[\u2013\u2012\u2015]/g, "-")  // en dash, figure dash, horizontal bar
+    // Ellipsis → three dots
+    .replace(/\u2026/g, "...")
+    // Spaces → normal space
+    .replace(/[\u00A0\u2000-\u200A\u202F\u205F]/g, " ")
+    // Zero-width chars → remove
+    .replace(/[\u200B-\u200D\uFEFF\u2060]/g, "")
+    // Bullets/arrows
+    .replace(/\u2022/g, "*")
+    .replace(/\u2192/g, "->")
+    .replace(/\u2190/g, "<-")
+    // Strip control characters (keep \t, \n, \r)
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "");
+}
 
 interface TerminalProps {
   tabId: string;
@@ -134,24 +158,40 @@ export default memo(function Terminal({
       if (event.ctrlKey && !event.shiftKey && event.key === "v") {
         if (event.repeat) return false;
         event.preventDefault();
-        readText().then((text) => {
-          if (!text) return;
+        (async () => {
           if (exitedRef.current) {
             onRequestCloseRef.current(tabIdRef.current);
             return;
           }
           if (!sessionIdRef.current) return;
-          // Strip C0 control chars (except \t \n \r) to prevent escape injection,
-          // then wrap in bracketed paste so the CLI treats it as pasted content.
-          const sanitized = text.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "");
-          if (!sanitized) return;
-          const bracketed = `\x1b[200~${sanitized}\x1b[201~`;
-          writePty(sessionIdRef.current, bracketed).catch((err) => {
-            console.warn("Paste write failed:", err);
-          });
-        }).catch((err) => {
-          console.warn("Clipboard read failed:", err);
-        });
+          // Try text first
+          try {
+            const text = await readText();
+            if (text) {
+              const sanitized = sanitizePastedText(text);
+              if (sanitized) {
+                const sid = sessionIdRef.current;
+                if (!sid) return;
+                const bracketed = `\x1b[200~${sanitized}\x1b[201~`;
+                await writePty(sid, bracketed);
+                return;
+              }
+            }
+          } catch (textErr) {
+            console.debug("Clipboard text unavailable, trying image:", textErr);
+          }
+          // Fallback: try clipboard image — save as PNG temp file and paste the path
+          try {
+            const path = await saveClipboardImage();
+            const sid = sessionIdRef.current;
+            if (!sid) return;
+            const quoted = path.includes(" ") ? `"${path}"` : path;
+            const bracketed = `\x1b[200~${quoted}\x1b[201~`;
+            await writePty(sid, bracketed);
+          } catch (err) {
+            console.warn("Clipboard paste failed:", err);
+          }
+        })();
         return false;
       }
       return true;
