@@ -2,7 +2,7 @@
   <img src="app/public/icon.png" width="120" alt="Anvil">
 </p>
 
-<h1 align="center">Anvil</h1>
+<h1 align="center"><a href="https://github.com/acaprino/anvil-toolset">Anvil</a></h1>
 
 <p align="center">
   <strong>A blazing-fast terminal launcher for Claude Code & Gemini CLI</strong><br>
