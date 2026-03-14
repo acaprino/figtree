@@ -122,27 +122,63 @@ export default memo(function Terminal({
     xterm.loadAddon(fitAddon);
     xterm.open(containerRef.current);
 
-    // Track WebGL addon for recovery after context loss (e.g. system standby).
+    // Track WebGL addon for recovery after context loss (e.g. system standby,
+    // GPU driver reset, context eviction with many tabs open).
     // Retry cap prevents futile reloads on hardware without WebGL support.
     let currentWebgl: WebglAddon | null = null;
     let webglFailures = 0;
     const MAX_WEBGL_RETRIES = 3;
+    // Cooldown prevents rapid-fire reload attempts when GPU is unstable
+    let lastWebglAttempt = 0;
+    const WEBGL_COOLDOWN_MS = 2000;
+    // Flag set by event handlers when WebGL context is lost — avoids
+    // probing canvas contexts directly (which can interfere with renderers).
+    let webglContextLost = false;
+
+    /** Dispose the current WebGL addon safely and force a canvas re-render.
+     *  Idempotent — only counts as one failure per actual disposal. */
+    const disposeWebgl = (reason: string) => {
+      if (!currentWebgl) return;
+      if (import.meta.env.DEV) console.debug(`[Terminal ${tabId}] WebGL disposed: ${reason}`);
+      try { currentWebgl.dispose(); } catch { /* already disposed */ }
+      currentWebgl = null;
+      webglContextLost = true;
+      webglFailures++;
+      if (!cancelled) {
+        // Force full canvas re-render so text is immediately readable
+        xterm.refresh(0, xterm.rows - 1);
+      }
+    };
 
     const loadWebgl = () => {
       if (currentWebgl || webglFailures >= MAX_WEBGL_RETRIES) return;
+      const now = Date.now();
+      if (now - lastWebglAttempt < WEBGL_COOLDOWN_MS) return;
+      lastWebglAttempt = now;
+
       let addon: WebglAddon | null = null;
       try {
         addon = new WebglAddon();
         addon.onContextLoss(() => {
-          // Dispose broken WebGL and force canvas re-render so text is readable
-          try { addon!.dispose(); } catch { /* already disposed */ }
-          currentWebgl = null;
-          webglFailures++;
-          if (!cancelled) xterm.refresh(0, xterm.rows - 1);
+          disposeWebgl("onContextLoss");
         });
         xterm.loadAddon(addon);
         currentWebgl = addon;
         webglFailures = 0;
+        webglContextLost = false;
+
+        // Listen directly on the WebGL canvas for context loss — backup for
+        // cases where the addon's onContextLoss doesn't fire (driver bugs,
+        // context eviction with many tabs, etc.)
+        requestAnimationFrame(() => {
+          if (cancelled || !currentWebgl) return;
+          const canvases = containerRef.current?.querySelectorAll("canvas");
+          canvases?.forEach((canvas) => {
+            canvas.addEventListener("webglcontextlost", () => {
+              disposeWebgl("canvas webglcontextlost event");
+            }, { once: true });
+          });
+        });
       } catch {
         try { addon?.dispose(); } catch { /* ok */ }
         currentWebgl = null;
@@ -340,8 +376,16 @@ export default memo(function Terminal({
     });
 
     const heartbeatInterval = setInterval(() => {
+      if (cancelled) return;
       if (sessionIdRef.current && !exitedRef.current) {
         sendHeartbeat(sessionIdRef.current).catch(() => {});
+      }
+      // If a context loss event fired between heartbeats, dispose the addon
+      // now and force canvas fallback. The webglContextLost flag is set by
+      // onContextLoss / webglcontextlost handlers even if disposeWebgl was
+      // already called (idempotent), so this is a safety net.
+      if (currentWebgl && webglContextLost) {
+        disposeWebgl("periodic health check: context lost");
       }
     }, 5000);
 
@@ -351,16 +395,23 @@ export default memo(function Terminal({
     const handleVisibilityChange = () => {
       if (cancelled) return;
       if (document.visibilityState === "visible") {
-        // After wake from standby, WebGL context may be silently lost.
-        // Attempt to reload WebGL; if it fails, force a canvas re-render
-        // so terminal text remains readable.
+        // After wake from standby, WebGL context is almost certainly lost.
+        // Dispose broken addon if a context loss event was flagged.
+        if (currentWebgl && webglContextLost) {
+          disposeWebgl("visibility: context lost during standby");
+        }
+
+        // Try to restore WebGL, or force canvas re-render as fallback
         if (!currentWebgl) {
           loadWebgl();
-          if (!currentWebgl) {
-            // WebGL still unavailable — ensure canvas renderer is up to date
-            xterm.refresh(0, xterm.rows - 1);
-          }
         }
+
+        // Always force a refresh after wake — even if WebGL looks alive,
+        // glyph textures may be corrupted after GPU power state changes
+        requestAnimationFrame(() => {
+          if (!cancelled) xterm.refresh(0, xterm.rows - 1);
+        });
+
         if (sessionIdRef.current && !exitedRef.current) {
           sendHeartbeat(sessionIdRef.current).catch(() => {
             if (!exitedRef.current) {
@@ -434,6 +485,11 @@ export default memo(function Terminal({
           resizeRafRef.current = 0;
         }
         fitAndResizeRef.current?.();
+        // Force a full content refresh on every tab switch. This catches
+        // cases where WebGL context was evicted while the tab was inactive
+        // (GPU reclaims contexts for inactive canvases) or glyph textures
+        // were silently corrupted. Cheap operation — just redraws existing buffer.
+        xtermRef.current.refresh(0, xtermRef.current.rows - 1);
         xtermRef.current.focus();
       });
       return () => cancelAnimationFrame(fitRafId);
