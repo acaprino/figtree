@@ -215,6 +215,15 @@ export default memo(function Terminal({
       return true;
     });
 
+    // Block the native paste event from reaching xterm's internal textarea.
+    // Without this, Ctrl+V triggers both our custom handler (readText → writePty)
+    // AND xterm's built-in paste handler (via onData), causing duplicate/garbled pastes.
+    const blockNativePaste = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    containerRef.current.addEventListener("paste", blockNativePaste, true);
+
     xterm.onData((data) => {
       if (exitedRef.current) {
         onRequestCloseRef.current(tabIdRef.current);
@@ -395,6 +404,7 @@ export default memo(function Terminal({
       clearTimeout(resizeTimer);
       clearInterval(heartbeatInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      containerRef.current?.removeEventListener("paste", blockNativePaste, true);
       unlistenDragDrop?.();
       observer.disconnect();
       if (sessionIdRef.current) {

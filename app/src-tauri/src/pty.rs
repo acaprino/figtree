@@ -152,10 +152,17 @@ impl PtySession {
     }
 
     pub fn write(&self, data: &[u8]) -> io::Result<()> {
-        let mut written: u32 = 0;
-        unsafe {
-            WriteFile(self.input_write, Some(data), Some(&mut written), None)
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        let mut offset = 0;
+        while offset < data.len() {
+            let mut written: u32 = 0;
+            unsafe {
+                WriteFile(self.input_write, Some(&data[offset..]), Some(&mut written), None)
+                    .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            }
+            if written == 0 {
+                return Err(io::Error::new(io::ErrorKind::WriteZero, "WriteFile wrote 0 bytes"));
+            }
+            offset += written as usize;
         }
         Ok(())
     }
