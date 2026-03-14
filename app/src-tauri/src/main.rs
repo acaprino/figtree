@@ -5,6 +5,7 @@ mod logging;
 
 mod tools;
 mod commands;
+mod marketplace;
 mod projects;
 mod pty;
 mod session;
@@ -58,6 +59,12 @@ fn main() {
             let watcher = ProjectWatcher::new(handle);
             watcher.watch_dirs(&settings.project_dirs, &settings.single_project_dirs);
             app.manage(Arc::new(watcher));
+
+            // Sync anvil-toolset marketplace in background (install or update)
+            std::thread::spawn(|| {
+                marketplace::sync_marketplace();
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

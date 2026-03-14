@@ -33,6 +33,8 @@ pub struct Settings {
     pub font_size: u32,
     #[serde(default)]
     pub skip_perms: bool,
+    #[serde(default = "default_true")]
+    pub security_gate: bool,
     #[serde(default = "default_project_dirs")]
     pub project_dirs: Vec<String>,
     /// Directories that are themselves single projects (not scanned for subdirectories).
@@ -42,6 +44,10 @@ pub struct Settings {
     pub project_labels: HashMap<String, String>,
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 fn default_font_family() -> String {
@@ -70,6 +76,7 @@ impl Default for Settings {
             font_family: default_font_family(),
             font_size: default_font_size(),
             skip_perms: false,
+            security_gate: true,
             project_dirs: default_project_dirs(),
             single_project_dirs: Vec::new(),
             project_labels: HashMap::new(),
@@ -177,7 +184,30 @@ pub fn save_settings(settings: &Settings) -> io::Result<()> {
     }
 
     fs::rename(&tmp, &path)?;
+
+    // Sync security_gate to ~/.claude/anvil-config.json
+    sync_security_gate(settings.security_gate);
+
     Ok(())
+}
+
+fn sync_security_gate(enabled: bool) {
+    let Some(home) = dirs::home_dir() else { return };
+    let config_path = home.join(".claude").join("anvil-config.json");
+
+    // Read existing config or create new
+    let mut config: serde_json::Value = fs::read_to_string(&config_path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert("securityGate".to_string(), serde_json::Value::Bool(enabled));
+    }
+
+    if let Ok(data) = serde_json::to_string_pretty(&config) {
+        let _ = fs::write(&config_path, data);
+    }
 }
 
 pub fn load_usage() -> UsageData {

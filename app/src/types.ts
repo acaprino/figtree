@@ -31,6 +31,7 @@ export interface Settings {
   font_family: string;
   font_size: number;
   skip_perms: boolean;
+  security_gate: boolean;
   project_dirs: string[];
   single_project_dirs: string[];
   project_labels: Record<string, string>;

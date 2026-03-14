@@ -95,6 +95,13 @@ export default memo(function StatusBar({ settings, filter, onUpdate, onAction }:
           </button>
         )}
         <button
+          className={`status-btn perms ${settings.security_gate ? "on" : "off"}`}
+          onClick={() => onUpdate({ security_gate: !settings.security_gate })}
+          title="Toggle security gate (blocks hardcoded secrets)"
+        >
+          Guard: <strong>{settings.security_gate ? "ON" : "off"}</strong>
+        </button>
+        <button
           className="status-btn"
           onClick={() => onAction?.("theme-picker")}
           title="Select theme (F9)"
