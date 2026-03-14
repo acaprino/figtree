@@ -97,6 +97,7 @@ impl Default for Settings {
             system_prompts: Vec::new(),
             active_prompt_ids: Vec::new(),
             security_gate: true,
+            prompts_seeded: false,
             project_dirs: default_project_dirs(),
             single_project_dirs: Vec::new(),
             project_labels: HashMap::new(),
