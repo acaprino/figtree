@@ -105,15 +105,22 @@ impl SessionRegistry {
         on_event: Channel<PtyEvent>,
     ) -> Result<String, String> {
         let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
-        if sessions.len() >= MAX_SESSIONS {
+        let current = sessions.len();
+        log_info!("session: spawn requested, working_dir={working_dir}, active={current}/{MAX_SESSIONS}");
+        if current >= MAX_SESSIONS {
+            log_error!("session: spawn rejected — max sessions reached ({MAX_SESSIONS})");
             return Err(format!("Maximum {MAX_SESSIONS} concurrent sessions reached"));
         }
 
         let pty = PtySession::spawn(command, working_dir, env, cols, rows)
-            .map_err(|e| format!("Failed to spawn PTY: {e}"))?;
+            .map_err(|e| {
+                log_error!("session: PTY spawn failed: {e}");
+                format!("Failed to spawn PTY: {e}")
+            })?;
         let pty = Arc::new(pty);
 
         let session_id = Uuid::new_v4().to_string();
+        log_info!("session: created id={session_id}, pid={}", pty.pid);
 
         // Shared flag ensures only one of {reader-panic path, exit-watcher} sends Exit.
         // Without this, a reader panic sends Exit{-1} and the exit watcher also fires,
@@ -207,6 +214,7 @@ impl SessionRegistry {
             }));
             let panicked = result.is_err();
             let code = result.unwrap_or(-1);
+            log_info!("session: process exited id={waiter_sid}, code={code}");
             // Only send Exit if the reader-panic path hasn't already done so.
             if !waiter_exit_sent.swap(true, Ordering::SeqCst) {
                 let _ = exit_channel.send(PtyEvent::Exit { code });
@@ -258,6 +266,8 @@ impl SessionRegistry {
     pub fn kill(&self, session_id: &str) -> Result<(), String> {
         let pty = {
             let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            let remaining = sessions.len().saturating_sub(1);
+            log_info!("session: kill requested id={session_id}, remaining={remaining}");
             sessions
                 .remove(session_id)
                 .map(|entry| entry.pty)
@@ -267,7 +277,10 @@ impl SessionRegistry {
                 pty.kill();
                 Ok(())
             }
-            None => Err(format!("Session {session_id} not found")),
+            None => {
+                log_warn!("session: kill target not found id={session_id}");
+                Err(format!("Session {session_id} not found"))
+            }
         }
     }
 
@@ -289,11 +302,13 @@ impl SessionRegistry {
         // Drain all sessions under the lock, then kill outside the lock.
         let entries: Vec<Arc<PtySession>> = {
             let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+            log_info!("session: kill_all — draining {} sessions", sessions.len());
             sessions.drain().map(|(_, entry)| entry.pty).collect()
         };
-        for pty in entries {
+        for pty in &entries {
             pty.kill();
         }
+        log_info!("session: kill_all — killed {} sessions", entries.len());
     }
 
     pub fn start_reaper(self: &Arc<Self>) {

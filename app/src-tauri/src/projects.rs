@@ -129,10 +129,12 @@ pub(crate) fn data_dir() -> PathBuf {
     let dir = dirs::data_local_dir()
         .map(|p| p.join("anvil"))
         .unwrap_or_else(|| {
-            std::env::current_exe()
+            let fallback = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-                .unwrap_or_else(|| PathBuf::from("."))
+                .unwrap_or_else(|| PathBuf::from("."));
+            log_warn!("projects: data_local_dir unavailable, using {}", fallback.display());
+            fallback
         });
     let _ = fs::create_dir_all(&dir);
     dir
@@ -157,36 +159,55 @@ fn session_path() -> PathBuf {
 pub fn load_session() -> Option<serde_json::Value> {
     let path = session_path();
     let meta = fs::metadata(&path).ok()?;
-    if meta.len() > 1_048_576 { return None; } // 1 MB cap
-    let data = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&data).ok()
+    let size = meta.len();
+    if size > 1_048_576 {
+        log_warn!("projects: session file too large ({size} bytes), skipping");
+        return None;
+    }
+    let data = fs::read_to_string(&path).ok()?;
+    let result = serde_json::from_str(&data).ok();
+    if result.is_some() {
+        log_info!("projects: loaded session ({size} bytes) from {}", path.display());
+    } else {
+        log_warn!("projects: failed to parse session file");
+    }
+    result
 }
 
 pub fn save_session(session: &serde_json::Value) -> io::Result<()> {
     let data = serde_json::to_string_pretty(session)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
     if data.len() > 1_048_576 {
+        log_error!("projects: session data too large ({} bytes)", data.len());
         return Err(io::Error::new(io::ErrorKind::InvalidData, "Session data too large"));
     }
     let path = session_path();
     let tmp = path.with_extension("json.tmp");
     fs::write(&tmp, &data)?;
     fs::rename(&tmp, &path)?;
+    log_debug!("projects: saved session ({} bytes)", data.len());
     Ok(())
 }
 
 
 pub fn load_settings() -> Settings {
-    if let Ok(data) = fs::read_to_string(settings_path()) {
+    let path = settings_path();
+    if let Ok(data) = fs::read_to_string(&path) {
         if let Ok(s) = serde_json::from_str(&data) {
+            log_info!("projects: loaded settings from {}", path.display());
             return s;
         }
+        log_warn!("projects: settings file corrupt, trying backup");
     }
-    if let Ok(data) = fs::read_to_string(settings_bak_path()) {
+    let bak = settings_bak_path();
+    if let Ok(data) = fs::read_to_string(&bak) {
         if let Ok(s) = serde_json::from_str(&data) {
+            log_info!("projects: loaded settings from backup {}", bak.display());
             return s;
         }
+        log_warn!("projects: backup settings also corrupt");
     }
+    log_info!("projects: using default settings");
     Settings::default()
 }
 
@@ -194,6 +215,8 @@ pub fn save_settings(settings: &Settings) -> io::Result<()> {
     let path = settings_path();
     let tmp = path.with_extension("json.tmp");
     let bak = settings_bak_path();
+
+    log_info!("projects: saving settings to {}", path.display());
 
     let data = serde_json::to_string_pretty(settings)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -205,6 +228,7 @@ pub fn save_settings(settings: &Settings) -> io::Result<()> {
     }
 
     fs::rename(&tmp, &path)?;
+    log_info!("projects: settings saved ({} bytes)", data.len());
 
     // Sync security_gate to ~/.claude/anvil-config.json
     sync_security_gate(settings.security_gate);
@@ -213,7 +237,11 @@ pub fn save_settings(settings: &Settings) -> io::Result<()> {
 }
 
 fn sync_security_gate(enabled: bool) {
-    let Some(home) = dirs::home_dir() else { return };
+    log_debug!("projects: syncing security_gate={enabled}");
+    let Some(home) = dirs::home_dir() else {
+        log_warn!("projects: cannot sync security_gate — no home dir");
+        return;
+    };
     let config_path = home.join(".claude").join("anvil-config.json");
 
     // Read existing config or create new
@@ -365,6 +393,9 @@ fn scan_one_project(path: &str, label: Option<&String>) -> Option<ProjectInfo> {
 pub fn scan_projects(project_dirs: &[String], single_project_dirs: &[String], labels: &HashMap<String, String>) -> Vec<ProjectInfo> {
     use std::sync::mpsc;
 
+    let start = std::time::Instant::now();
+    log_info!("projects: scanning {} container dirs, {} single dirs", project_dirs.len(), single_project_dirs.len());
+
     // Collect all subdirectories from each container dir
     let mut all_paths: Vec<String> = Vec::new();
     for parent in project_dirs {
@@ -439,7 +470,9 @@ pub fn scan_projects(project_dirs: &[String], single_project_dirs: &[String], la
     }
 
     drop(tx);
-    rx.iter().collect()
+    let results: Vec<ProjectInfo> = rx.iter().collect();
+    log_info!("projects: scan complete — {} projects found in {:.0}ms", results.len(), start.elapsed().as_secs_f64() * 1000.0);
+    results
 }
 
 static ANSI_RE: LazyLock<regex_lite::Regex> = LazyLock::new(|| {
@@ -455,7 +488,9 @@ pub fn is_unc(path: &str) -> bool {
 }
 
 pub fn create_project(parent: &str, name: &str, git_init: bool) -> Result<String, String> {
+    log_info!("projects: create_project parent={parent}, name={name}, git_init={git_init}");
     if is_unc(parent) {
+        log_error!("projects: create_project rejected UNC path: {parent}");
         return Err("UNC paths are not supported".to_string());
     }
 

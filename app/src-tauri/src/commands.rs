@@ -111,7 +111,15 @@ pub async fn spawn_tool(
         .map(|(i, p)| if i == 0 { p.clone() } else { quote_arg(p) })
         .collect::<Vec<_>>()
         .join(" ");
-    log_info!("spawn_tool: command_line_len={}, has_system_prompt={}", command_line.len(), !system_prompt.is_empty());
+    // Log the command used to launch the session.  Redact --system-prompt
+    // value since it can be large and may contain user-specific content.
+    let log_cmd = if let Some(pos) = command_line.find("--system-prompt") {
+        // Everything up to --system-prompt, then a placeholder
+        format!("{}--system-prompt <redacted>", &command_line[..pos])
+    } else {
+        command_line.clone()
+    };
+    log_info!("spawn_tool: command={log_cmd}");
 
     let result = registry.spawn(&command_line, &project_path, &env, cols, rows, on_event);
     match &result {
@@ -332,6 +340,7 @@ pub async fn save_clipboard_image() -> Result<String, String> {
 
 #[tauri::command]
 pub async fn get_token_usage() -> Result<TokenUsageStats, String> {
+    log_info!("get_token_usage: computing 7-day stats");
     tokio::task::spawn_blocking(|| usage_stats::compute_usage(7))
         .await
         .map_err(|e| format!("Task failed: {e}"))?

@@ -38,6 +38,8 @@ fn main() {
         log_error!("PANIC at {location}: {payload}");
     }));
 
+    log_info!("Anvil version: {}", env!("CARGO_PKG_VERSION"));
+    log_info!("Data directory: {}", crate::projects::data_dir().display());
     log_info!("Initializing session registry");
 
     let registry = Arc::new(
@@ -66,8 +68,10 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .manage(registry)
         .setup(|app| {
+            log_info!("setup: loading initial settings");
             let handle = app.handle().clone();
             let settings = projects::load_settings();
+            log_info!("setup: project_dirs={:?}, single_project_dirs={:?}", settings.project_dirs, settings.single_project_dirs);
             let watcher = ProjectWatcher::new(handle);
             watcher.watch_dirs(&settings.project_dirs, &settings.single_project_dirs);
             app.manage(Arc::new(watcher));
@@ -75,8 +79,10 @@ fn main() {
             // Sync anvil-toolset marketplace before any session can start.
             // Runs synchronously to avoid race conditions with Claude Code
             // reading/writing settings.json concurrently.
+            log_info!("setup: syncing marketplace");
             marketplace::sync_marketplace();
 
+            log_info!("setup: complete");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

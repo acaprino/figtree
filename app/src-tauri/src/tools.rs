@@ -22,16 +22,20 @@ fn wrap_shim(exe_str: &str, args: Vec<String>) -> (String, Vec<String>) {
 
 pub fn resolve_claude_exe() -> Result<PathBuf, String> {
     if let Ok(path) = which::which("claude") {
+        log_info!("tools: resolved claude via PATH: {}", path.display());
         return Ok(path);
     }
 
     if let Some(home) = dirs::home_dir() {
         let fallback = home.join(".local").join("bin").join("claude.exe");
         if fallback.exists() {
+            log_info!("tools: resolved claude via fallback: {}", fallback.display());
             return Ok(fallback);
         }
+        log_debug!("tools: claude fallback not found at {}", fallback.display());
     }
 
+    log_error!("tools: claude executable not found in PATH or fallback locations");
     Err("Claude executable not found. Install with: npm install -g @anthropic-ai/claude-code".to_string())
 }
 
@@ -73,12 +77,15 @@ pub fn build_claude_command(
         claude_args.push(append_system_prompt.to_string());
     }
 
-    if is_shim(&exe_str) {
+    let result = if is_shim(&exe_str) {
+        log_info!("tools: claude exe is a shim ({exe_str}), wrapping with cmd.exe");
         // Quote the exe path for cmd.exe /c to handle spaces
         wrap_shim(&exe_str, claude_args)
     } else {
         (exe_str, claude_args)
-    }
+    };
+    log_info!("tools: claude command built — model={model_id}, effort={effort}, skip_perms={skip_perms}, autocompact={autocompact}, has_prompt={}", !append_system_prompt.is_empty());
+    result
 }
 
 pub fn claude_env() -> Vec<(String, String)> {
@@ -91,27 +98,34 @@ pub fn claude_env() -> Vec<(String, String)> {
 
 pub fn resolve_gemini_exe() -> Result<PathBuf, String> {
     if let Ok(path) = which::which("gemini") {
+        log_info!("tools: resolved gemini via PATH: {}", path.display());
         return Ok(path);
     }
 
     if let Some(home) = dirs::home_dir() {
         let fallback = home.join(".local").join("bin").join("gemini.exe");
         if fallback.exists() {
+            log_info!("tools: resolved gemini via fallback: {}", fallback.display());
             return Ok(fallback);
         }
+        log_debug!("tools: gemini fallback not found at {}", fallback.display());
     }
 
+    log_error!("tools: gemini executable not found in PATH or fallback locations");
     Err("Gemini executable not found. Install with: npm install -g @google/gemini-cli".to_string())
 }
 
 pub fn build_gemini_command(gemini_exe: &Path) -> (String, Vec<String>) {
     let exe_str = gemini_exe.to_string_lossy().to_string();
 
-    if is_shim(&exe_str) {
+    let result = if is_shim(&exe_str) {
+        log_info!("tools: gemini exe is a shim ({exe_str}), wrapping with cmd.exe");
         wrap_shim(&exe_str, vec![])
     } else {
         (exe_str, vec![])
-    }
+    };
+    log_info!("tools: gemini command built");
+    result
 }
 
 pub fn gemini_env() -> Vec<(String, String)> {

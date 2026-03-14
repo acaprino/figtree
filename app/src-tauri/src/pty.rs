@@ -68,6 +68,7 @@ impl PtySession {
         cols: i16,
         rows: i16,
     ) -> io::Result<Self> {
+        log_debug!("pty: creating pseudo console {cols}x{rows} for: {}", &command[..command.len().min(120)]);
         let (pty_input_read, pty_input_write) = create_pipe()?;
         let (pty_output_read, pty_output_write) = match create_pipe() {
             Ok(handles) => handles,
@@ -193,13 +194,16 @@ impl PtySession {
             return Err(io::Error::new(io::ErrorKind::Other, e.to_string()));
         }
 
+        let pid = pi.dwProcessId;
+        log_info!("pty: spawned pid={pid}, console={cols}x{rows}");
+
         Ok(PtySession {
             hpc,
             process_handle: pi.hProcess,
             thread_handle: pi.hThread,
             input_write: Mutex::new(pty_input_write),
             output_read: pty_output_read,
-            pid: pi.dwProcessId,
+            pid,
             console_closed: AtomicBool::new(false),
             _attr_list_buf: attr_list_buf,
         })
@@ -233,8 +237,10 @@ impl PtySession {
 
     pub fn resize(&self, cols: i16, rows: i16) -> io::Result<()> {
         if self.console_closed.load(Ordering::SeqCst) {
+            log_warn!("pty: resize attempted on closed console pid={}", self.pid);
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, "Console already closed"));
         }
+        log_debug!("pty: resize pid={} to {cols}x{rows}", self.pid);
         unsafe {
             ResizePseudoConsole(self.hpc, COORD { X: cols, Y: rows })
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
@@ -259,6 +265,7 @@ impl PtySession {
     /// Closing the pseudo console breaks the output pipe, which unblocks
     /// any reader thread blocked on ReadFile.
     pub fn kill(&self) {
+        log_info!("pty: killing pid={}", self.pid);
         unsafe {
             let _ = TerminateProcess(self.process_handle, 1);
             if !self.console_closed.swap(true, Ordering::SeqCst) {
@@ -270,6 +277,7 @@ impl PtySession {
 
 impl Drop for PtySession {
     fn drop(&mut self) {
+        log_debug!("pty: dropping session pid={}", self.pid);
         unsafe {
             // Delete the proc thread attribute list before the buffer is freed
             // to avoid leaking internal Windows allocations.

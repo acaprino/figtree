@@ -95,10 +95,13 @@ fn compute_cost(model: &str, input: u64, output: u64, cache_create: u64, cache_r
 }
 
 pub fn compute_usage(days_back: u64) -> Result<TokenUsageStats, String> {
+    let start = std::time::Instant::now();
+    log_info!("usage_stats: computing usage for last {days_back} days");
     let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
     let projects_dir = home.join(".claude").join("projects");
 
     if !projects_dir.is_dir() {
+        log_info!("usage_stats: no projects dir at {}, returning empty", projects_dir.display());
         return Ok(empty_stats());
     }
 
@@ -111,6 +114,7 @@ pub fn compute_usage(days_back: u64) -> Result<TokenUsageStats, String> {
 
     let mut jsonl_files: Vec<PathBuf> = Vec::new();
     collect_jsonl_files(&projects_dir, &mut jsonl_files, 0, 2, cutoff);
+    log_info!("usage_stats: found {} jsonl files to process", jsonl_files.len());
 
     let mut day_map: HashMap<String, Accum> = HashMap::new();
     let mut model_map: HashMap<String, Accum> = HashMap::new();
@@ -247,6 +251,16 @@ pub fn compute_usage(days_back: u64) -> Result<TokenUsageStats, String> {
         sessions: session_ids.len() as u64,
         cost: days.iter().map(|d| d.cost).sum(),
     };
+
+    log_info!(
+        "usage_stats: done in {:.0}ms — {} days, {} models, {} messages, {} sessions, ${:.2}",
+        start.elapsed().as_secs_f64() * 1000.0,
+        days.len(),
+        models.len(),
+        totals.messages,
+        totals.sessions,
+        totals.cost,
+    );
 
     Ok(TokenUsageStats {
         days,
