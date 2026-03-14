@@ -15,11 +15,12 @@ pub async fn spawn_tool(
     model_idx: usize,
     effort_idx: usize,
     skip_perms: bool,
+    autocompact: bool,
     cols: i16,
     rows: i16,
     on_event: Channel<PtyEvent>,
 ) -> Result<String, String> {
-    log_info!("spawn_tool: project={project_path}, tool={tool_idx}, model={model_idx}, effort={effort_idx}, skip_perms={skip_perms}, cols={cols}, rows={rows}");
+    log_info!("spawn_tool: project={project_path}, tool={tool_idx}, model={model_idx}, effort={effort_idx}, skip_perms={skip_perms}, autocompact={autocompact}, cols={cols}, rows={rows}");
 
     if projects::is_unc(&project_path) {
         log_error!("spawn_tool: UNC paths not supported: {project_path}");
@@ -41,7 +42,7 @@ pub async fn spawn_tool(
                 log_error!("spawn_tool: failed to resolve claude exe: {e}");
                 e
             })?;
-            let (p, a) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms);
+            let (p, a) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms, autocompact);
             (p, a, tools::claude_env())
         }
         1 => {

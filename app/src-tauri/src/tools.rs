@@ -40,6 +40,7 @@ pub fn build_claude_command(
     model_idx: usize,
     effort_idx: usize,
     skip_perms: bool,
+    autocompact: bool,
 ) -> (String, Vec<String>) {
     let model_id = MODELS
         .get(model_idx)
@@ -59,6 +60,10 @@ pub fn build_claude_command(
 
     if skip_perms {
         claude_args.push("--dangerously-skip-permissions".to_string());
+    }
+
+    if autocompact {
+        claude_args.push("--autocompact".to_string());
     }
 
     if is_shim(&exe_str) {

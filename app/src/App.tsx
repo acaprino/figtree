@@ -74,7 +74,7 @@ function AppContent() {
   }, [addTabAndResetFilter, toggleAboutTab, closeTab, activeTabId, nextTab, prevTab]);
 
   const handleLaunch = useCallback(
-    (tabId: string, projectPath: string, projectName: string, toolIdx: number, modelIdx: number, effortIdx: number, skipPerms: boolean) => {
+    (tabId: string, projectPath: string, projectName: string, toolIdx: number, modelIdx: number, effortIdx: number, skipPerms: boolean, autocompact: boolean) => {
       updateTab(tabId, {
         type: "terminal",
         projectPath,
@@ -83,6 +83,7 @@ function AppContent() {
         modelIdx,
         effortIdx,
         skipPerms,
+        autocompact,
       });
     },
     [updateTab],
@@ -170,6 +171,7 @@ function AppContent() {
                     modelIdx={tab.modelIdx ?? 0}
                     effortIdx={tab.effortIdx ?? 0}
                     skipPerms={tab.skipPerms ?? false}
+                    autocompact={tab.autocompact ?? false}
                     themeIdx={themeIdx}
                     fontFamily={fontFamily}
                     fontSize={fontSize}

@@ -73,6 +73,7 @@ interface TerminalProps {
   modelIdx: number;
   effortIdx: number;
   skipPerms: boolean;
+  autocompact: boolean;
   themeIdx: number;
   fontFamily: string;
   fontSize: number;
@@ -91,6 +92,7 @@ export default memo(function Terminal({
   modelIdx,
   effortIdx,
   skipPerms,
+  autocompact,
   themeIdx,
   fontFamily,
   fontSize,
@@ -434,6 +436,7 @@ export default memo(function Terminal({
         modelIdx,
         effortIdx,
         skipPerms,
+        autocompact,
         cols,
         rows,
         (data: string) => {

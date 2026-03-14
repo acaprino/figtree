@@ -7,6 +7,7 @@ export interface Tab {
   modelIdx?: number;
   effortIdx?: number;
   skipPerms?: boolean;
+  autocompact?: boolean;
   sessionId?: string;
   hasNewOutput?: boolean;
   exitCode?: number | null;
@@ -31,6 +32,7 @@ export interface Settings {
   font_family: string;
   font_size: number;
   skip_perms: boolean;
+  autocompact: boolean;
   security_gate: boolean;
   project_dirs: string[];
   single_project_dirs: string[];

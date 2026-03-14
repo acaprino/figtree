@@ -33,6 +33,8 @@ pub struct Settings {
     pub font_size: u32,
     #[serde(default)]
     pub skip_perms: bool,
+    #[serde(default)]
+    pub autocompact: bool,
     #[serde(default = "default_true")]
     pub security_gate: bool,
     #[serde(default = "default_project_dirs")]
@@ -76,6 +78,7 @@ impl Default for Settings {
             font_family: default_font_family(),
             font_size: default_font_size(),
             skip_perms: false,
+            autocompact: false,
             security_gate: true,
             project_dirs: default_project_dirs(),
             single_project_dirs: Vec::new(),

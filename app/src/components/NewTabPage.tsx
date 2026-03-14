@@ -18,6 +18,7 @@ interface NewTabPageProps {
     modelIdx: number,
     effortIdx: number,
     skipPerms: boolean,
+    autocompact: boolean,
   ) => void;
   onRequestClose: (tabId: string) => void;
   isActive: boolean;
@@ -86,6 +87,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, isActive }: NewTabPagePro
         currentSettings.model_idx,
         currentSettings.effort_idx,
         currentSettings.skip_perms,
+        currentSettings.autocompact,
       );
     },
     [tabId, onLaunch],
@@ -347,7 +349,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, isActive }: NewTabPagePro
             }
             const name = dirPath.split(/[\\/]/).pop() ?? "Terminal";
             setActiveModal(null);
-            onLaunch(tabId, dirPath, name, settings.tool_idx, settings.model_idx, settings.effort_idx, settings.skip_perms);
+            onLaunch(tabId, dirPath, name, settings.tool_idx, settings.model_idx, settings.effort_idx, settings.skip_perms, settings.autocompact);
           }}
         />
       )}

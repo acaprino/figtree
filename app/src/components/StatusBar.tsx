@@ -94,6 +94,15 @@ export default memo(function StatusBar({ settings, filter, onUpdate, onAction }:
             Perms: <strong>{settings.skip_perms ? "SKIP" : "safe"}</strong>
           </button>
         )}
+        {isClaude && (
+          <button
+            className={`status-btn ${settings.autocompact ? "on" : ""}`}
+            onClick={() => onUpdate({ autocompact: !settings.autocompact })}
+            title="Toggle autocompact"
+          >
+            Compact: <strong>{settings.autocompact ? "ON" : "off"}</strong>
+          </button>
+        )}
         <button
           className={`status-btn perms ${settings.security_gate ? "on" : "off"}`}
           onClick={() => onUpdate({ security_gate: !settings.security_gate })}
