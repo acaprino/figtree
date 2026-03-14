@@ -8,6 +8,43 @@ use crate::session::{PtyEvent, SessionRegistry};
 use crate::usage_stats::{self, TokenUsageStats};
 use crate::watcher::ProjectWatcher;
 
+/// Max system prompt size (100 KB) — prevents CreateProcessW command-line overflow.
+const MAX_SYSTEM_PROMPT_LEN: usize = 100_000;
+
+/// Quote a single argument for Windows CreateProcessW (CommandLineToArgvW rules).
+/// Always wraps in double quotes and escapes embedded `"` and trailing `\`.
+fn quote_arg(arg: &str) -> String {
+    let mut result = String::with_capacity(arg.len() + 2);
+    result.push('"');
+    let mut backslashes: usize = 0;
+    for c in arg.chars() {
+        match c {
+            '\\' => backslashes += 1,
+            '"' => {
+                // Double backslashes preceding a quote, then escape the quote
+                for _ in 0..(2 * backslashes + 1) {
+                    result.push('\\');
+                }
+                result.push('"');
+                backslashes = 0;
+            }
+            _ => {
+                for _ in 0..backslashes {
+                    result.push('\\');
+                }
+                result.push(c);
+                backslashes = 0;
+            }
+        }
+    }
+    // Double trailing backslashes before the closing quote
+    for _ in 0..(2 * backslashes) {
+        result.push('\\');
+    }
+    result.push('"');
+    result
+}
+
 #[tauri::command]
 pub async fn spawn_tool(
     registry: State<'_, Arc<SessionRegistry>>,
@@ -17,6 +54,7 @@ pub async fn spawn_tool(
     effort_idx: usize,
     skip_perms: bool,
     autocompact: bool,
+    system_prompt: String,
     cols: i16,
     rows: i16,
     on_event: Channel<PtyEvent>,
@@ -37,13 +75,18 @@ pub async fn spawn_tool(
         return Err("Invalid terminal dimensions".to_string());
     }
 
+    if system_prompt.len() > MAX_SYSTEM_PROMPT_LEN {
+        log_error!("spawn_tool: system prompt too large ({} bytes)", system_prompt.len());
+        return Err(format!("System prompt too large (max {MAX_SYSTEM_PROMPT_LEN} bytes)"));
+    }
+
     let (program, args, env) = match tool_idx {
         0 => {
             let claude_exe = tools::resolve_claude_exe().map_err(|e| {
                 log_error!("spawn_tool: failed to resolve claude exe: {e}");
                 e
             })?;
-            let (p, a) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms, autocompact);
+            let (p, a) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms, autocompact, &system_prompt);
             (p, a, tools::claude_env())
         }
         1 => {
@@ -64,10 +107,11 @@ pub async fn spawn_tool(
     cmd_parts.extend(args);
     let command_line = cmd_parts
         .iter()
-        .map(|p| if p.contains(' ') && !p.starts_with('"') { format!("\"{}\"", p) } else { p.clone() })
+        .enumerate()
+        .map(|(i, p)| if i == 0 { p.clone() } else { quote_arg(p) })
         .collect::<Vec<_>>()
         .join(" ");
-    log_info!("spawn_tool: command_line={command_line}");
+    log_info!("spawn_tool: command_line_len={}, has_system_prompt={}", command_line.len(), !system_prompt.is_empty());
 
     let result = registry.spawn(&command_line, &project_path, &env, cols, rows, on_event);
     match &result {

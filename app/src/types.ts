@@ -1,6 +1,12 @@
+export interface SystemPrompt {
+  id: string;
+  name: string;
+  content: string;
+}
+
 export interface Tab {
   id: string;
-  type: "new-tab" | "terminal" | "about" | "usage";
+  type: "new-tab" | "terminal" | "about" | "usage" | "system-prompt";
   projectPath?: string;
   projectName?: string;
   toolIdx?: number;
@@ -33,6 +39,8 @@ export interface Settings {
   font_size: number;
   skip_perms: boolean;
   autocompact: boolean;
+  system_prompts: SystemPrompt[];
+  active_prompt_ids: string[];
   security_gate: boolean;
   project_dirs: string[];
   single_project_dirs: string[];

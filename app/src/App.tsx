@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo } from "react";
+import { SystemPrompt } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTabManager } from "./hooks/useTabManager";
 import { ProjectsProvider, useProjectsContext } from "./contexts/ProjectsContext";
@@ -7,6 +8,7 @@ import Terminal from "./components/Terminal";
 import NewTabPage from "./components/NewTabPage";
 import AboutPage from "./components/AboutPage";
 import UsagePage from "./components/UsagePage";
+import SystemPromptPage from "./components/SystemPromptPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
@@ -21,6 +23,7 @@ function AppContent() {
     addTab,
     toggleAboutTab,
     toggleUsageTab,
+    toggleSystemPromptTab,
     closeTab,
     updateTab,
     markNewOutput,
@@ -33,6 +36,14 @@ function AppContent() {
   const themeIdx = settings?.theme_idx ?? 0;
   const fontFamily = settings?.font_family ?? "Cascadia Code";
   const fontSize = settings?.font_size ?? 14;
+  const systemPrompt = useMemo(() => {
+    const prompts: SystemPrompt[] = settings?.system_prompts ?? [];
+    const activeIds: string[] = settings?.active_prompt_ids ?? [];
+    return prompts
+      .filter((p) => activeIds.includes(p.id))
+      .map((p) => p.content)
+      .join("\n\n");
+  }, [settings?.system_prompts, settings?.active_prompt_ids]);
 
   const addTabAndResetFilter = useCallback(() => {
     setFilter("");
@@ -71,12 +82,15 @@ function AppContent() {
       } else if (e.ctrlKey && e.key === "u") {
         e.preventDefault();
         toggleUsageTab();
+      } else if (e.ctrlKey && e.shiftKey && e.key === "P") {
+        e.preventDefault();
+        toggleSystemPromptTab();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [addTabAndResetFilter, toggleAboutTab, toggleUsageTab, closeTab, activeTabId, nextTab, prevTab]);
+  }, [addTabAndResetFilter, toggleAboutTab, toggleUsageTab, toggleSystemPromptTab, closeTab, activeTabId, nextTab, prevTab]);
 
   const handleLaunch = useCallback(
     (tabId: string, projectPath: string, projectName: string, toolIdx: number, modelIdx: number, effortIdx: number, skipPerms: boolean, autocompact: boolean) => {
@@ -175,6 +189,14 @@ function AppContent() {
                     isActive={isActive}
                   />
                 </ErrorBoundary>
+              ) : tab.type === "system-prompt" ? (
+                <ErrorBoundary tabId={tab.id} onClose={closeTab}>
+                  <SystemPromptPage
+                    tabId={tab.id}
+                    onRequestClose={closeTab}
+                    isActive={isActive}
+                  />
+                </ErrorBoundary>
               ) : (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
                   <Terminal
@@ -185,6 +207,7 @@ function AppContent() {
                     effortIdx={tab.effortIdx ?? 0}
                     skipPerms={tab.skipPerms ?? false}
                     autocompact={tab.autocompact ?? false}
+                    systemPrompt={systemPrompt}
                     themeIdx={themeIdx}
                     fontFamily={fontFamily}
                     fontSize={fontSize}

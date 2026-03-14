@@ -60,7 +60,9 @@ export default memo(function TabBar({ tabs, activeTabId, onActivate, onClose, on
                 ? "About"
                 : tab.type === "usage"
                   ? "Usage"
-                  : "New Tab";
+                  : tab.type === "system-prompt"
+                    ? "System Prompts"
+                    : "New Tab";
 
           return (
             <div

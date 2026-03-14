@@ -119,11 +119,12 @@ export function useTabManager() {
     return tab.id;
   }, []);
 
-  const toggleAboutTab = useCallback(() => {
+  // Factory for singleton tab toggles (about, usage, system-prompt).
+  // Close if active, activate if background, create if none.
+  const toggleSingletonTab = useCallback((tabType: Tab["type"]) => {
     setTabs((prev) => {
-      const existing = prev.find((t) => t.type === "about");
+      const existing = prev.find((t) => t.type === tabType);
       if (existing) {
-        // Close if active, activate if background
         if (existing.id === activeTabIdRef.current) {
           const next = prev.filter((t) => t.id !== existing.id);
           if (next.length === 0) {
@@ -141,7 +142,7 @@ export function useTabManager() {
       }
       const tab: Tab = {
         id: crypto.randomUUID(),
-        type: "about",
+        type: tabType,
         hasNewOutput: false,
         exitCode: null,
       };
@@ -150,35 +151,9 @@ export function useTabManager() {
     });
   }, []);
 
-  const toggleUsageTab = useCallback(() => {
-    setTabs((prev) => {
-      const existing = prev.find((t) => t.type === "usage");
-      if (existing) {
-        if (existing.id === activeTabIdRef.current) {
-          const next = prev.filter((t) => t.id !== existing.id);
-          if (next.length === 0) {
-            const newTab = createNewTab();
-            setActiveTabId(newTab.id);
-            return [newTab];
-          }
-          const idx = prev.findIndex((t) => t.id === existing.id);
-          const newIdx = Math.min(idx, next.length - 1);
-          setActiveTabId(next[newIdx].id);
-          return next;
-        }
-        setActiveTabId(existing.id);
-        return prev;
-      }
-      const tab: Tab = {
-        id: crypto.randomUUID(),
-        type: "usage",
-        hasNewOutput: false,
-        exitCode: null,
-      };
-      setActiveTabId(tab.id);
-      return [...prev, tab];
-    });
-  }, []);
+  const toggleAboutTab = useCallback(() => toggleSingletonTab("about"), [toggleSingletonTab]);
+  const toggleUsageTab = useCallback(() => toggleSingletonTab("usage"), [toggleSingletonTab]);
+  const toggleSystemPromptTab = useCallback(() => toggleSingletonTab("system-prompt"), [toggleSingletonTab]);
 
   const closeTab = useCallback(
     (tabId: string) => {
@@ -274,6 +249,7 @@ export function useTabManager() {
     addTab,
     toggleAboutTab,
     toggleUsageTab,
+    toggleSystemPromptTab,
     closeTab,
     updateTab,
     markNewOutput,

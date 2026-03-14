@@ -74,3 +74,8 @@ commands.allow = ["load_session"]
 identifier = "allow-save-clipboard-image"
 description = "Allows saving clipboard image as temp PNG"
 commands.allow = ["save_clipboard_image"]
+
+[[permission]]
+identifier = "allow-get-token-usage"
+description = "Allows getting token usage statistics"
+commands.allow = ["get_token_usage"]

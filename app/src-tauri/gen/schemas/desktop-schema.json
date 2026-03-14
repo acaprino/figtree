@@ -399,6 +399,12 @@
           "markdownDescription": "Allows creating a new project directory"
         },
         {
+          "description": "Allows getting token usage statistics",
+          "type": "string",
+          "const": "allow-get-token-usage",
+          "markdownDescription": "Allows getting token usage statistics"
+        },
+        {
           "description": "Allows sending heartbeat to a session",
           "type": "string",
           "const": "allow-heartbeat",

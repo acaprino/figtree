@@ -41,6 +41,7 @@ pub fn build_claude_command(
     effort_idx: usize,
     skip_perms: bool,
     autocompact: bool,
+    append_system_prompt: &str,
 ) -> (String, Vec<String>) {
     let model_id = MODELS
         .get(model_idx)
@@ -64,6 +65,11 @@ pub fn build_claude_command(
 
     if autocompact {
         claude_args.push("--autocompact".to_string());
+    }
+
+    if !append_system_prompt.is_empty() {
+        claude_args.push("--append-system-prompt".to_string());
+        claude_args.push(append_system_prompt.to_string());
     }
 
     if is_shim(&exe_str) {

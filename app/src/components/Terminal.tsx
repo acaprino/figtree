@@ -74,6 +74,7 @@ interface TerminalProps {
   effortIdx: number;
   skipPerms: boolean;
   autocompact: boolean;
+  systemPrompt: string;
   themeIdx: number;
   fontFamily: string;
   fontSize: number;
@@ -93,6 +94,7 @@ export default memo(function Terminal({
   effortIdx,
   skipPerms,
   autocompact,
+  systemPrompt,
   themeIdx,
   fontFamily,
   fontSize,
@@ -462,6 +464,7 @@ export default memo(function Terminal({
         effortIdx,
         skipPerms,
         autocompact,
+        systemPrompt,
         cols,
         rows,
         (data: string) => {

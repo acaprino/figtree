@@ -14,6 +14,13 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 const DEFAULT_PROJECTS_DIR: &str = r"D:\Projects";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemPrompt {
+    pub id: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Settings {
     #[serde(default)]
     pub version: u32,
@@ -35,6 +42,10 @@ pub struct Settings {
     pub skip_perms: bool,
     #[serde(default)]
     pub autocompact: bool,
+    #[serde(default)]
+    pub system_prompts: Vec<SystemPrompt>,
+    #[serde(default)]
+    pub active_prompt_ids: Vec<String>,
     #[serde(default = "default_true")]
     pub security_gate: bool,
     #[serde(default = "default_project_dirs")]
@@ -79,6 +90,8 @@ impl Default for Settings {
             font_size: default_font_size(),
             skip_perms: false,
             autocompact: false,
+            system_prompts: Vec::new(),
+            active_prompt_ids: Vec::new(),
             security_gate: true,
             project_dirs: default_project_dirs(),
             single_project_dirs: Vec::new(),

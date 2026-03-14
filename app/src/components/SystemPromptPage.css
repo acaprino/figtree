@@ -1,0 +1,199 @@
+/* System Prompt Editor */
+
+.sp-description {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+/* ━━━ Prompt List ━━━ */
+.sp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.sp-empty {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+.sp-item {
+  border: 1px solid var(--overlay0);
+  padding: var(--space-3) var(--space-4);
+  transition: border-color 0.15s;
+}
+
+.sp-item.active {
+  border-color: var(--accent);
+}
+
+.sp-item.editing {
+  border-color: var(--yellow);
+}
+
+.sp-item-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sp-toggle {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sp-toggle.on {
+  color: var(--accent);
+}
+
+.sp-item-name {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: bold;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-item-size {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.sp-item-preview {
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  margin: var(--space-2) 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: color-mix(in srgb, var(--text-dim) 70%, transparent);
+  max-height: 60px;
+  overflow: hidden;
+}
+
+/* ━━━ Buttons ━━━ */
+.sp-btn {
+  background: none;
+  border: 1px solid var(--overlay0);
+  color: var(--text-dim);
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sp-btn:hover {
+  color: var(--text);
+  border-color: var(--overlay1);
+}
+
+.sp-btn:active {
+  transform: translateY(1px);
+}
+
+.sp-btn-edit:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.sp-btn-delete:hover {
+  color: var(--red);
+  border-color: var(--red);
+}
+
+.sp-btn-save {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.sp-btn-save:hover {
+  background: color-mix(in srgb, var(--green) 10%, transparent);
+}
+
+.sp-btn-cancel:hover {
+  background: color-mix(in srgb, var(--overlay0) 20%, transparent);
+}
+
+.sp-btn-create {
+  color: var(--accent);
+  border-color: var(--accent);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+}
+
+.sp-btn-create:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* ━━━ Editor ━━━ */
+.sp-editor {
+  border: 1px solid var(--overlay0);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.sp-editor-title {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: bold;
+  margin-bottom: var(--space-3);
+}
+
+.sp-input {
+  width: 100%;
+  background: var(--mantle);
+  border: 1px solid var(--overlay0);
+  color: var(--text);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sp-input:focus {
+  border-color: var(--accent);
+}
+
+.sp-textarea {
+  width: 100%;
+  background: var(--mantle);
+  border: 1px solid var(--overlay0);
+  color: var(--text);
+  font-size: var(--text-sm);
+  padding: var(--space-3);
+  resize: vertical;
+  min-height: 200px;
+  outline: none;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.sp-textarea:focus {
+  border-color: var(--accent);
+}
+
+.sp-editor-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ━━━ Actions bar ━━━ */
+.sp-actions {
+  margin: var(--space-4) 0;
+}
