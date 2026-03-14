@@ -111,13 +111,35 @@ pub async fn spawn_tool(
         .map(|(i, p)| if i == 0 { p.clone() } else { quote_arg(p) })
         .collect::<Vec<_>>()
         .join(" ");
-    // Log the command used to launch the session.  Redact --system-prompt
-    // value since it can be large and may contain user-specific content.
-    let log_cmd = if let Some(pos) = command_line.find("--system-prompt") {
-        // Everything up to --system-prompt, then a placeholder
-        format!("{}--system-prompt <redacted>", &command_line[..pos])
+    // Log the command used to launch the session.  Redact --append-system-prompt
+    // value (the next quoted argument) since it can be large and contain user content.
+    let log_cmd: std::borrow::Cow<str> = if let Some(flag_pos) = command_line.find("--append-system-prompt") {
+        let after_flag = flag_pos + "--append-system-prompt".len();
+        // Skip whitespace, then skip the quoted argument value to preserve trailing flags
+        let rest = &command_line[after_flag..];
+        let trimmed = rest.trim_start();
+        let skip_ws = rest.len() - trimmed.len();
+        let value_end = if trimmed.starts_with('"') {
+            // Find closing quote (respecting escaped quotes from quote_arg)
+            let mut i = 1;
+            let bytes = trimmed.as_bytes();
+            while i < bytes.len() {
+                if bytes[i] == b'\\' { i += 2; continue; }
+                if bytes[i] == b'"' { i += 1; break; }
+                i += 1;
+            }
+            after_flag + skip_ws + i
+        } else {
+            // Unquoted: ends at next whitespace
+            after_flag + skip_ws + trimmed.find(' ').unwrap_or(trimmed.len())
+        };
+        std::borrow::Cow::Owned(format!(
+            "{}--append-system-prompt <redacted>{}",
+            &command_line[..flag_pos],
+            &command_line[value_end..],
+        ))
     } else {
-        command_line.clone()
+        std::borrow::Cow::Borrowed(&command_line)
     };
     log_info!("spawn_tool: command={log_cmd}");
 

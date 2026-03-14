@@ -18,9 +18,11 @@ interface TabBarProps {
   onClose: (id: string) => void;
   onAdd: () => void;
   onSaveToProjects?: (tabId: string) => void;
+  onToggleAbout: () => void;
+  onToggleUsage: () => void;
 }
 
-export default memo(function TabBar({ tabs, activeTabId, onActivate, onClose, onAdd, onSaveToProjects }: TabBarProps) {
+export default memo(function TabBar({ tabs, activeTabId, onActivate, onClose, onAdd, onSaveToProjects, onToggleAbout, onToggleUsage }: TabBarProps) {
   const [closingIds, setClosingIds] = useState<Set<string>>(new Set());
   const closingTimersRef = useRef<Map<string, number>>(new Map());
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
@@ -132,6 +134,21 @@ export default memo(function TabBar({ tabs, activeTabId, onActivate, onClose, on
       <button className="tab-add" onClick={onAdd} title="New Tab (Ctrl+T)" aria-label="New Tab">
         +
       </button>
+      <div className="tab-bar-actions">
+        <button className="tab-bar-action" onClick={onToggleUsage} title="Usage Stats (Ctrl+U)" aria-label="Usage Stats">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1" y="7" width="2" height="4" rx="0.5" fill="currentColor"/>
+            <rect x="5" y="4" width="2" height="7" rx="0.5" fill="currentColor"/>
+            <rect x="9" y="1" width="2" height="10" rx="0.5" fill="currentColor"/>
+          </svg>
+        </button>
+        <button className="tab-bar-action" onClick={onToggleAbout} title="About (F12)" aria-label="About">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+            <text x="6" y="9" textAnchor="middle" fill="currentColor" fontSize="8" fontWeight="bold" fontFamily="serif">i</text>
+          </svg>
+        </button>
+      </div>
       {contextMenu && (() => {
         const tab = tabs.find((t) => t.id === contextMenu.tabId);
         if (!tab) return null;

@@ -27,6 +27,9 @@ const BANNER_BUF_MAX = 8192;
 /** How long (ms) to strip cursor-repositioned status bar output after the
  *  banner is consumed. Prevents Claude's status from overwriting the Anvil logo. */
 const BANNER_COOLDOWN_MS = 2000;
+/** How long (ms) after a resize to ignore buffer shrinkage — reflow (line
+ *  unwrapping) reduces buffer.active.length without content being cleared. */
+const RESIZE_REFLOW_MS = 500;
 
 /** Replace common non-ASCII characters with ASCII equivalents and strip control chars.
  *  This prevents encoding issues when pasting text from editors, web pages, or Word docs. */
@@ -390,8 +393,8 @@ export default memo(function Terminal({
       const prevLen = prevBufferLenRef.current;
       prevBufferLenRef.current = bufLen;
       if (prevLen > 0 && bufLen < prevLen - xterm.rows) {
-        // Ignore buffer shrinkage within 500ms of a resize — reflow, not clear
-        if (Date.now() - lastResizeTimeRef.current < 500) return;
+        // Ignore buffer shrinkage within RESIZE_REFLOW_MS of a resize — reflow, not clear
+        if (Date.now() - lastResizeTimeRef.current < RESIZE_REFLOW_MS) return;
         const bm = bookmarksRef.current;
         if (bm.size === 0) return;
         bm.clear();
@@ -433,6 +436,7 @@ export default memo(function Terminal({
     };
 
     const fitAndResize = () => {
+      lastResizeTimeRef.current = Date.now();
       fitAddon.fit();
       syncPtySize(false);
     };
@@ -720,7 +724,6 @@ export default memo(function Terminal({
           cancelAnimationFrame(resizeRafRef.current);
           resizeRafRef.current = 0;
         }
-        lastResizeTimeRef.current = Date.now();
         fitAndResizeRef.current?.();
         // Force a full content refresh on every tab switch. This catches
         // cases where WebGL context was evicted while the tab was inactive

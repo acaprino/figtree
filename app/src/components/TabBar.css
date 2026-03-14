@@ -183,6 +183,43 @@
   transform: scale(0.95);
 }
 
+/* Tab bar action buttons (Usage, About) */
+.tab-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--space-1) / 2);
+  margin-left: var(--space-1);
+}
+
+.tab-bar-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+}
+
+.tab-bar-action:hover {
+  background: var(--hover-overlay);
+  color: var(--text);
+}
+
+.tab-bar-action:active {
+  background: color-mix(in srgb, var(--surface) 80%, var(--accent));
+  transform: scale(0.9);
+}
+
+.tab-bar-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* Window controls */
 .window-controls {
   display: flex;

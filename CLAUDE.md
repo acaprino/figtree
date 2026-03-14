@@ -53,6 +53,9 @@ sonnet / opus / haiku / sonnet [1M] / opus [1M]
 - **F8**: Label selected project
 - **F10**: Quick launch (arbitrary directory)
 - **Ctrl+,**: Open settings (themes, font, directories, behavior)
+- **Ctrl+U**: Toggle usage/stats tab
+- **Ctrl+Shift+P**: Toggle system prompts tab
+- **F12**: Toggle about tab
 - **Enter**: Launch selected project
 - **Esc**: Clear filter / close tab
 - **Backspace**: Delete last filter character

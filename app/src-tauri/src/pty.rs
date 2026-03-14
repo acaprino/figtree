@@ -68,7 +68,7 @@ impl PtySession {
         cols: i16,
         rows: i16,
     ) -> io::Result<Self> {
-        log_debug!("pty: creating pseudo console {cols}x{rows} for: {}", &command[..command.len().min(120)]);
+        log_debug!("pty: creating pseudo console {cols}x{rows}");
         let (pty_input_read, pty_input_write) = create_pipe()?;
         let (pty_output_read, pty_output_write) = match create_pipe() {
             Ok(handles) => handles,

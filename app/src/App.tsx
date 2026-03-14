@@ -185,6 +185,8 @@ function AppContent() {
         onClose={closeTab}
         onAdd={addTabAndResetFilter}
         onSaveToProjects={handleSaveToProjects}
+        onToggleAbout={toggleAboutTab}
+        onToggleUsage={toggleUsageTab}
       />
       <div className="tab-content">
         {tabs.map((tab) => {
