@@ -1,10 +1,10 @@
-.about-logo-wrap {
+.ascii-logo-wrap {
   display: flex;
   justify-content: center;
   margin-bottom: var(--space-6);
 }
 
-.about-logo {
+.ascii-logo {
   font-size: var(--text-xs);
   line-height: 1.2;
 

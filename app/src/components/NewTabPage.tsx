@@ -9,6 +9,7 @@ import LabelProjectModal from "./modals/LabelProjectModal";
 import QuickLaunchModal from "./modals/QuickLaunchModal";
 import SettingsModal from "./modals/SettingsModal";
 import { ProjectInfo, TOOLS, MODELS, EFFORTS, SORT_ORDERS } from "../types";
+import AsciiLogo from "./AsciiLogo";
 import "./NewTabPage.css";
 
 interface NewTabPageProps {
@@ -269,6 +270,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, onOpenSystemPrompts, isAc
 
   return (
     <div className="new-tab-page">
+      <AsciiLogo cols={25} />
       <SessionConfig settings={settings} onUpdate={updateSettings} />
       <ProjectList
         projects={projects}
