@@ -65,6 +65,7 @@ pub fn build_claude_command(
 
     if autocompact {
         claude_args.push("--autocompact".to_string());
+        claude_args.push("80".to_string());
     }
 
     if !append_system_prompt.is_empty() {
