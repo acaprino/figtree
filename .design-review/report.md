@@ -1,165 +1,161 @@
-# Design & Performance Review -- 2026-03-13
+# Design & Performance Review -- 2026-03-14
 
-Diff mode review -- 3 changed files (App.css, themes.ts, types.ts) + retro mode impact on 6 component stylesheets
+Diff mode review - 4 files (2 modified, 2 new) - Minimap feature with bookmarks
 
 ## Scores
 
 | Category | Score |
 |----------|-------|
-| UX Consistency | 7/10 |
+| UX Quality | 7/10 |
 | Layout System | 7/10 |
-| Accessibility | 5/10 |
-| Visual Polish & Motion | 6/10 |
-| Typography | 6/10 |
-| React Performance | 9/10 |
-| **Overall** | **7/10** |
+| Visual Polish & Motion | 6.5/10 |
+| Accessibility | 2/10 |
+| Typography | 8/10 |
+| React Performance | 5.5/10 |
+| **Overall** | **6/10** |
 
-Critical: 0 | High: 3 | Medium: 5 | Low: 8
+Critical: 2 | High: 5 | Medium: 9 | Low: 10
 
 ## Files Audited
 
-- `app/src/App.css` (retro mode CSS)
-- `app/src/themes.ts` (retro class toggle)
-- `app/src/types.ts` (Theme interface, 2 new themes)
-- `app/src/components/TabBar.css`, `StatusBar.css`, `ProjectList.css`, `Modal.css`, `Terminal.css`, `NewTabPage.css`
+- `app/src/components/Terminal.tsx` (modified)
+- `app/src/components/Terminal.css` (modified)
+- `app/src/components/Minimap.tsx` (new)
+- `app/src/components/Minimap.css` (new)
 
 ---
 
-## High Issues
+## Critical & High Issues
 
-### `types.ts` -- textDim on surface fails WCAG AA in both new themes
-- **Severity**: High
-- **Issue**: `textDim` rendered on `surface` backgrounds fails WCAG AA 4.5:1. Anvil Forge: `#a0907a` on `#3d342c` = ~3.96:1. Guybrush: `#8a9480` on `#2c3548` = ~3.87:1. Affects project metadata on selected items, status bar, modal labels.
-- **Fix**: Lighten textDim. Anvil Forge: `#a0907a` -> `#b8a890`. Guybrush: `#8a9480` -> `#a0ac96`.
+### Performance
+
+#### `Minimap.tsx` -- Full buffer re-render on every frame
+- **Severity**: Critical
+- **Issue**: `render()` iterates EVERY buffer line (`translateToString` + per-char `fillRect`). At 10K+ lines, ~450K calls/frame. Fires on every rAF during heavy PTY output.
+- **Fix**: Virtualize: only draw lines visible in minimap scroll container (~200-300 lines). Separate scroll-only viewport update from content render.
 - [ ] Fixed
 
-### `types.ts` -- Anvil Forge red fails WCAG AA on bg
-- **Severity**: High
-- **Issue**: Red `#e85c3a` on bg `#2a2420` = ~4.40:1, below 4.5:1 AA threshold. Used for error messages, tab exit codes, danger buttons at 11-13px sizes.
-- **Fix**: Lighten to `#f06845` (~5.2:1).
+### Accessibility
+
+#### `Minimap.tsx` -- Zero accessibility support
+- **Severity**: Critical
+- **Issue**: No ARIA roles, no keyboard navigation, no screen reader support. Mouse-only interactive element in a keyboard-heavy app.
+- **Fix**: Add `role="scrollbar"`, `aria-label`, `aria-valuenow/min/max`, `tabIndex={0}`, `onKeyDown` for arrows/page/bookmark-jump. Or `aria-hidden="true"` with keyboard shortcuts for bookmark nav.
 - [ ] Fixed
 
-### `App.css` -- Active tab offset doesn't compensate for retro 2px border
+### Performance
+
+#### `Minimap.tsx` -- Canvas height exceeds browser limits
 - **Severity**: High
-- **Issue**: `.tab.active` uses `margin-bottom: -1px; padding-bottom: 1px` to overlap the tab bar's 1px border. In retro mode, border becomes 2px but offset stays at -1px, leaving a 1px border line visible between active tab and content.
-- **Fix**: Add `.retro .tab.active { margin-bottom: -2px; padding-bottom: 2px; }`
+- **Issue**: `totalLines * 3 * dpr` can exceed 16,384-32,768px max canvas dimension. Silently produces blank canvas.
+- **Fix**: Clamp to safe max (8192px). Scale line-to-pixel mapping, or virtualize.
+- [ ] Fixed
+
+#### `Minimap.tsx` -- Scroll events trigger full buffer re-render
+- **Severity**: High
+- **Issue**: `onScroll` triggers full canvas re-render. Only viewport indicator position changes on scroll.
+- **Fix**: Separate `updateViewport()` from `render()`. `onScroll` calls `updateViewport` only.
+- [ ] Fixed
+
+#### `Terminal.tsx` -- setBookmarks triggers Terminal re-render
+- **Severity**: High
+- **Issue**: React state causes re-render on every Enter. New array reference defeats Minimap `memo`.
+- **Fix**: Move bookmarks to ref. Pass `bookmarksRef` to Minimap. Canvas renders already use ref.
+- [ ] Fixed
+
+#### `Terminal.tsx` -- Unbounded bookmark array growth
+- **Severity**: High
+- **Issue**: Array grows without bound. Stale line numbers after buffer wraps.
+- **Fix**: Use `Set`. Cap at ~2000. Prune bookmarks outside buffer range.
+- [ ] Fixed
+
+### UX
+
+#### `Minimap.tsx` -- themeIdx prop accepted but never used
+- **Severity**: High
+- **Issue**: Dropped in destructuring. F9 theme change leaves minimap with stale colors.
+- **Fix**: Destructure `themeIdx`, add `useEffect` to `scheduleRender`. Cache `getComputedStyle` in ref keyed on `themeIdx`.
 - [ ] Fixed
 
 ---
 
 ## Medium Issues
 
-### `App.css` -- CSS animations not disabled in retro mode
-- **Severity**: Medium
-- **Issue**: `transition: none` only kills CSS transitions. Keyframe animations still run smoothly: tab-enter (0.2s), tab-exit (0.15s), pulse dot, shimmer, terminal-in, perms-pulse, tab-panel opacity. Contradicts "snap like old UI" philosophy.
-- **Fix**: Add animation overrides:
-  ```css
-  .retro .tab,
-  .retro .tab.closing { animation: none; }
-  .retro .tab.has-output::before { animation: none; }
-  .retro .skeleton-row { animation: none; background: var(--surface); }
-  .retro .terminal-container { animation: none; }
-  .retro .tab-panel { transition: none; }
-  .retro .status-btn.perms.on strong { animation: none; }
-  ```
+#### `Minimap.tsx` -- getComputedStyle on every render frame
+- **Fix**: Cache colors in ref, update via `useEffect` on `themeIdx`.
 - [ ] Fixed
 
-### `App.css` -- Scanline overlay z-index above modals
-- **Severity**: Medium
-- **Issue**: `.retro::after` uses `z-index: 9999`, above `--z-modal: 1000`. Scanlines render on top of modals (theme picker, directory manager). Also hardcodes z-index outside the token system.
-- **Fix**: Add `--z-scanline: 999` to `:root` tokens. Use `z-index: var(--z-scanline)` so scanlines sit below modal backdrops.
+#### `Minimap.tsx` -- Canvas resize/reallocation every frame
+- **Fix**: Guard with dimension check. Use fixed-size canvas with virtualization.
 - [ ] Fixed
 
-### `App.css` -- Scanline opacity too low to be visible
-- **Severity**: Medium
-- **Issue**: `rgba(0, 0, 0, 0.03)` on dark backgrounds produces a luminance delta below the just-noticeable-difference threshold. Effect is invisible on most monitors, especially at high DPI. Full-screen pseudo-element for zero perceptual payoff.
-- **Fix**: Increase to `rgba(0, 0, 0, 0.06)` or `0.08` for visible CRT feel. Consider increasing line pitch to 3px/6px.
+#### `Terminal.tsx` -- "Every Enter = bookmark" false positives
+- **Fix**: Check `getLine(line)?.translateToString(true).trim().length > 0` before bookmarking.
 - [ ] Fixed
 
-### `App.css` -- Output indicator dot remains circular in retro mode
-- **Severity**: Medium
-- **Issue**: `.tab.has-output::before` uses hardcoded `border-radius: 50%`. A 6x6px round dot breaks the "no curves" retro contract.
-- **Fix**: Add `.retro .tab.has-output::before { border-radius: 0; }`
+#### `Minimap.tsx` -- No empty/null state handling
+- **Fix**: Return `null` when `xterm` is null to hide minimap until terminal ready.
 - [ ] Fixed
 
-### `types.ts` -- Theme picker doesn't indicate retro themes
-- **Severity**: Medium
-- **Issue**: "Anvil Forge" and "Guybrush" previews look identical to standard themes. Users can't tell these activate retro mode (geometry, scanlines, transitions) until after selection.
-- **Fix**: Append "[retro]" to theme names, or apply `border-radius: 0` to retro theme preview cards as a visual hint.
+#### `Minimap.css` -- Viewport indicator opacity too low (0.12)
+- **Fix**: Use `color-mix(in srgb, var(--accent) 15%, transparent)` with `opacity: 1`. Hover: 22%. Border stays full opacity.
+- [ ] Fixed
+
+#### `Minimap.tsx` -- No bookmark snap feedback
+- **Fix**: Flash bookmark marker or pulse viewport on snap.
+- [ ] Fixed
+
+#### `Minimap.tsx` -- No cursor change during drag
+- **Fix**: Set `cursor: grabbing` on body during drag, reset on mouseup.
+- [ ] Fixed
+
+#### `Minimap.tsx` -- Bookmark yellow muddy on some themes
+- **Fix**: Raise alpha to 0.95-1.0.
+- [ ] Fixed
+
+#### `Minimap.css` -- No responsive collapse at narrow widths
+- **Fix**: Container query to hide minimap below 500px.
 - [ ] Fixed
 
 ---
 
 ## Low Issues
 
-### `App.css` -- Modal box-shadow not removed in retro mode
-- **Issue**: `.modal` has `box-shadow: 0 8px 32px rgba(0,0,0,0.5)`. DOS-era dialogs had hard borders, not drop shadows.
-- **Fix**: Add `.retro .modal { box-shadow: none; }`
-- [ ] Fixed
-
-### `App.css` -- Modal button padding cramped with 2px border
-- **Issue**: `.modal-btn` vertical padding drops from 4px to 3px effective with `border-width: 2px`. Feels tight.
-- **Fix**: Add `.retro .modal-btn { padding: 5px var(--space-3); }`
-- [ ] Fixed
-
-### `types.ts` -- Guybrush textDim color temperature mismatch
-- **Issue**: Text `#dcd0b8` is warm sandy, but textDim `#8a9480` shifts to cool green-gray. Temperature disconnect.
-- **Fix**: Shift to warm gray: `#9a9488` or `#a09888`.
-- [ ] Fixed
-
-### `types.ts` -- Anvil Forge green feels washed out
-- **Issue**: Green `#8ab060` has lower saturation/brightness than sibling semantic colors. Success/branch indicators feel anemic.
-- **Fix**: Brighten to `#9cc068` or `#a0c060`.
-- [ ] Fixed
-
-### `App.css` -- No CRT phosphor glow in retro mode
-- **Issue**: Real CRT displays had subtle text bloom. Missing detail.
-- **Fix**: Add `.retro .new-tab-header h2 { text-shadow: 0 0 2px currentColor; }`
-- [ ] Fixed
-
-### `App.css` -- Smooth scrolling inconsistent with retro snap
-- **Issue**: `.project-list` uses `scroll-behavior: smooth`.
-- **Fix**: Add `.retro .project-list { scroll-behavior: auto; }`
-- [ ] Fixed
-
-### `App.css` -- Theme swatch bar spans retain 2px radius
-- **Issue**: `.theme-swatch-bar span` has hardcoded `border-radius: 2px`.
-- **Fix**: Add `.retro .theme-swatch-bar span { border-radius: 0; }`
-- [ ] Fixed
-
-### `App.css` -- No retro typography reinforcement
-- **Issue**: No letter-spacing or font-weight adjustments for retro feel. Optional enhancement.
-- **Fix**: Add `.retro { letter-spacing: 0.03em; }` and flatten bold weights to 400 in retro mode.
-- [ ] Fixed
+- Bookmark snap during drag causes jerky jumps -- disable snap during drag
+- Adjacent bookmarks merge visually -- accept as density heatmap or add gap
+- memo without custom comparator -- moot if bookmarks move to ref
+- No minimap toggle shortcut -- consider adding F-key toggle
+- Viewport transition 0.08s lag -- consider removing for instant tracking
+- Border-left low contrast (--surface) -- use --crust or --overlay0
+- Retro mode has no minimap overrides
+- No will-change on viewport indicator
+- String.includes in hot loop -- use module-scope Set
+- Window drag listeners not cleaned on unmount -- store cleanup in ref
 
 ---
 
 ## What's Working Well
 
-- Clean architectural separation: `retro` flag in Theme interface, single-line class toggle, all CSS scoped under `.retro`
-- CSS custom property override (`--radius-sm/--radius-md` to 0) cascades automatically to all token-consuming elements
-- Theme application bypasses React entirely (DOM manipulation) -- no re-render cascade
-- All style mutations in `applyTheme()` are batched into a single browser recalculation
-- Terminal component uses `React.memo` + ref-based callbacks, preventing re-mounts on theme change
-- `pointer-events: none` on scanline overlay preserves terminal interactivity
-- `prefers-reduced-motion` media query covers retro-blink and all other animations
-- Primary text contrast is excellent (AAA) in both themes: Anvil ~10.7:1, Guybrush ~10.4:1
-- Primary button contrast solid: Anvil ~7.0:1, Guybrush ~8.7:1
-- Blinking underscore cursor (`step-end` timing) is an authentic DOS detail
-- Inset 3px box-shadow for selected items evokes DOS list navigation
-- Theme palettes are distinct and coherent: warm forge vs. cool adventure
+- Clean component boundary -- 4-prop interface, Terminal owns state
+- RAF-based render coalescing prevents redundant paints
+- DPR-aware canvas with proper scale/style separation
+- Bookmark snap-to (3-line proximity) -- smart Fitts's Law optimization
+- Global mousemove/mouseup for drag handles out-of-bounds correctly
+- CSS variable consumption for automatic 10-theme compatibility
+- Canvas `{ alpha: false }` avoids compositing overhead
+- Correct flex layout: `flex:1 + min-width:0` terminal, `flex-shrink:0` minimap
+- Structural syntax coloring gives informational value at minimap scale
+- Comprehensive cleanup in Terminal useEffect
 
 ---
 
 ## Action Plan
 
-1. [ ] Fix textDim contrast in both themes (lighten by 15-20%)
-2. [ ] Fix Anvil Forge red contrast (`#e85c3a` -> `#f06845`)
-3. [ ] Fix active tab offset for 2px retro border (-2px margin)
-4. [ ] Disable all CSS animations in retro mode (not just transitions)
-5. [ ] Lower scanline z-index below modals (999 via token)
-6. [ ] Increase scanline opacity to 0.06-0.08 for visibility
-7. [ ] Square the output indicator dot in retro mode
-8. [ ] Add retro indicator to theme names in picker
-9. [ ] Remove modal box-shadow in retro mode
-10. [ ] Fix Guybrush textDim color temperature
+1. [ ] Virtualize canvas rendering + separate scroll viewport update (Critical + High)
+2. [ ] Fix themeIdx: destructure, cache getComputedStyle in ref (High + Medium)
+3. [ ] Move bookmarks to ref/Set, cap at 2000, prune stale (High x2)
+4. [ ] Clamp canvas height to safe max (High)
+5. [ ] Improve bookmark heuristic -- check non-empty content (Medium)
+6. [ ] Boost viewport indicator visibility with color-mix (Medium)
+7. [ ] Add responsive collapse via container query (Medium)
+8. [ ] Add drag cursor feedback (Medium)
