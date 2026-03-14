@@ -201,6 +201,13 @@ macro_rules! log_error {
 }
 
 #[macro_export]
+macro_rules! log_warn {
+    ($($arg:tt)*) => {
+        $crate::logging::log("WARN", &format!($($arg)*))
+    };
+}
+
+#[macro_export]
 macro_rules! log_debug {
     ($($arg:tt)*) => {
         $crate::logging::log("DEBUG", &format!($($arg)*))

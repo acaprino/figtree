@@ -29,6 +29,7 @@ arboard = { version = "3", features = ["image-data"] }
 notify = "6"
 
 raw-window-handle = "0.6"
+tauri-plugin-single-instance = "2"
 
 [dependencies.windows]
 version = "0.62"

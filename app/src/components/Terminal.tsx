@@ -31,7 +31,9 @@ function sanitizePastedText(text: string): string {
     .replace(/\u2192/g, "->")
     .replace(/\u2190/g, "<-")
     // Strip control characters (keep \t, \n, \r)
-    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "");
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g, "")
+    // Strip lone surrogates — defense against non-standard clipboard sources (e.g. Tauri plugin IPC)
+    .replace(/[\uD800-\uDFFF]/g, "");
 }
 
 interface TerminalProps {
@@ -87,6 +89,7 @@ export default memo(function Terminal({
   const onNewOutputRef = useRef(onNewOutput);
   const onExitRef = useRef(onExit);
   const onErrorRef = useRef(onError);
+  const pasteInFlightRef = useRef(false);
 
   useEffect(() => {
     isActiveRef.current = isActive;
@@ -198,40 +201,47 @@ export default memo(function Terminal({
     };
     loadWebgl();
 
-    // Shared paste logic used by both Ctrl+V and right-click → Paste
+    // Shared paste logic used by both Ctrl+V and right-click → Paste.
+    // Guard against double-fire: Ctrl+V keydown + native paste event can both trigger.
     const doPaste = async () => {
-      if (exitedRef.current) {
-        onRequestCloseRef.current(tabIdRef.current);
-        return;
-      }
-      if (!sessionIdRef.current) return;
-      // Try text first
+      if (pasteInFlightRef.current) return;
+      pasteInFlightRef.current = true;
       try {
-        const text = await readText();
-        if (text) {
-          const sanitized = sanitizePastedText(text);
-          if (sanitized) {
-            const sid = sessionIdRef.current;
-            if (!sid) return;
-            const bracketed = `\x1b[200~${sanitized}\x1b[201~`;
-            await writePty(sid, bracketed);
-            return;
-          }
+        if (exitedRef.current) {
+          onRequestCloseRef.current(tabIdRef.current);
+          return;
         }
-      } catch (textErr) {
-        console.debug("Clipboard text unavailable, trying image:", textErr);
-      }
-      // Fallback: try clipboard image — save as PNG temp file and paste the path
-      try {
-        const path = await saveClipboardImage();
-        const sid = sessionIdRef.current;
-        if (!sid) return;
-        const quoted = path.includes(" ") ? `"${path}"` : path;
-        const bracketed = `\x1b[200~${quoted}\x1b[201~`;
-        await writePty(sid, bracketed);
-      } catch (err) {
-        console.warn("Clipboard paste failed:", err);
-        xtermRef.current?.write("\x07"); // bell
+        if (!sessionIdRef.current) return;
+        // Try text first
+        try {
+          const text = await readText();
+          if (text) {
+            const sanitized = sanitizePastedText(text);
+            if (sanitized) {
+              const sid = sessionIdRef.current;
+              if (!sid) return;
+              const bracketed = `\x1b[200~${sanitized}\x1b[201~`;
+              await writePty(sid, bracketed);
+              return;
+            }
+          }
+        } catch (textErr) {
+          console.debug("Clipboard text unavailable, trying image:", textErr);
+        }
+        // Fallback: try clipboard image — save as PNG temp file and paste the path
+        try {
+          const path = await saveClipboardImage();
+          const sid = sessionIdRef.current;
+          if (!sid) return;
+          const quoted = path.includes(" ") ? `"${path}"` : path;
+          const bracketed = `\x1b[200~${quoted}\x1b[201~`;
+          await writePty(sid, bracketed);
+        } catch (err) {
+          console.warn("Clipboard paste failed:", err);
+          xtermRef.current?.write("\x07"); // bell
+        }
+      } finally {
+        pasteInFlightRef.current = false;
       }
     };
 

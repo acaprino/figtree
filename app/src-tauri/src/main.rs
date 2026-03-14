@@ -50,6 +50,17 @@ fn main() {
 
     log_info!("Starting Tauri application");
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // Focus the existing window when a second instance is launched.
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.unminimize() {
+                    log_warn!("Single-instance: failed to unminimize: {e}");
+                }
+                if let Err(e) = window.set_focus() {
+                    log_warn!("Single-instance: failed to focus: {e}");
+                }
+            }
+        }))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
         .manage(registry)
