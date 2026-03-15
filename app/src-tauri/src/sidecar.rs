@@ -101,6 +101,8 @@ pub struct SidecarManager {
     oneshots: OneshotMap,
     available: AtomicBool,
     _process: Mutex<Option<Child>>,
+    /// Human-readable reason if unavailable (for frontend warning)
+    unavailable_reason: Mutex<Option<String>>,
 }
 
 impl SidecarManager {
@@ -111,12 +113,21 @@ impl SidecarManager {
             oneshots: Arc::new(Mutex::new(HashMap::new())),
             available: AtomicBool::new(false),
             _process: Mutex::new(None),
+            unavailable_reason: Mutex::new(None),
         };
 
         // Try to find node.exe and start the sidecar
         match find_node() {
             Some(node_path) => {
                 log_info!("sidecar: found node at {}", node_path);
+
+                // Ensure sidecar dependencies are installed
+                if let Err(e) = manager.ensure_deps(&node_path) {
+                    log_error!("sidecar: failed to install dependencies: {e}");
+                    *manager.unavailable_reason.lock().unwrap() = Some(format!("Failed to install SDK dependencies: {e}"));
+                    return manager;
+                }
+
                 match manager.start_sidecar(&node_path) {
                     Ok(()) => {
                         manager.available.store(true, Ordering::SeqCst);
@@ -124,44 +135,92 @@ impl SidecarManager {
                     }
                     Err(e) => {
                         log_error!("sidecar: failed to start: {e}");
+                        *manager.unavailable_reason.lock().unwrap() = Some(format!("Failed to start sidecar: {e}"));
                     }
                 }
             }
             None => {
                 log_warn!("sidecar: node.exe not found — agent SDK unavailable");
+                *manager.unavailable_reason.lock().unwrap() = Some("Node.js not found. Install Node.js (https://nodejs.org) to enable Agent SDK features.".to_string());
             }
         }
 
         manager
     }
 
-    fn start_sidecar(&self, node_path: &str) -> Result<(), String> {
-        // Resolve sidecar script path relative to the executable
+    /// Ensure sidecar node_modules are installed. Runs `npm install` if missing.
+    fn ensure_deps(&self, node_path: &str) -> Result<(), String> {
+        let sidecar_dir = self.resolve_sidecar_dir()?;
+        let node_modules = sidecar_dir.join("node_modules");
+
+        if node_modules.exists() {
+            log_info!("sidecar: node_modules already present");
+            return Ok(());
+        }
+
+        log_info!("sidecar: node_modules missing, running npm install in {}", sidecar_dir.display());
+
+        // Find npm — it's usually alongside node
+        let node_dir = std::path::Path::new(node_path)
+            .parent()
+            .ok_or("Cannot determine node directory")?;
+        let npm_cmd = if node_dir.join("npm.cmd").exists() {
+            node_dir.join("npm.cmd").to_string_lossy().to_string()
+        } else if which::which("npm").is_ok() {
+            "npm".to_string()
+        } else {
+            return Err("npm not found — cannot install sidecar dependencies".to_string());
+        };
+
+        let output = Command::new(&npm_cmd)
+            .args(["install", "--production"])
+            .current_dir(&sidecar_dir)
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .output()
+            .map_err(|e| format!("Failed to run npm install: {e}"))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("npm install failed: {stderr}"));
+        }
+
+        log_info!("sidecar: npm install completed successfully");
+        Ok(())
+    }
+
+    /// Resolve the sidecar directory (contains package.json and sidecar.js).
+    fn resolve_sidecar_dir(&self) -> Result<std::path::PathBuf, String> {
         let exe_dir = std::env::current_exe()
             .map_err(|e| format!("Cannot determine exe path: {e}"))?
             .parent()
             .ok_or("Cannot determine exe dir")?
             .to_path_buf();
 
-        // In dev mode, the sidecar is at ../../sidecar/sidecar.js relative to the exe
-        // In production, it's bundled as a resource
-        let sidecar_path = if exe_dir.join("sidecar").join("sidecar.js").exists() {
-            exe_dir.join("sidecar").join("sidecar.js")
-        } else {
-            // Dev mode: go up from target/debug/ to project root
-            let dev_path = exe_dir
-                .parent() // target/debug -> target
-                .and_then(|p| p.parent()) // target -> app/src-tauri
-                .and_then(|p| p.parent()) // app/src-tauri -> app
-                .and_then(|p| p.parent()) // app -> project root
-                .map(|p| p.join("sidecar").join("sidecar.js"));
+        // Production: sidecar/ next to exe
+        if exe_dir.join("sidecar").join("package.json").exists() {
+            return Ok(exe_dir.join("sidecar"));
+        }
 
-            match dev_path {
-                Some(p) if p.exists() => p,
-                _ => return Err("sidecar.js not found".to_string()),
-            }
-        };
+        // Dev mode: go up from target/debug/ to project root
+        let dev_path = exe_dir
+            .parent()
+            .and_then(|p| p.parent())
+            .and_then(|p| p.parent())
+            .and_then(|p| p.parent())
+            .map(|p| p.join("sidecar"));
 
+        match dev_path {
+            Some(p) if p.join("package.json").exists() => Ok(p),
+            _ => Err("sidecar directory not found".to_string()),
+        }
+    }
+
+    fn start_sidecar(&self, node_path: &str) -> Result<(), String> {
+        let sidecar_dir = self.resolve_sidecar_dir()?;
+        let sidecar_path = sidecar_dir.join("sidecar.js");
+        if !sidecar_path.exists() {
+            return Err("sidecar.js not found".to_string());
+        }
         log_info!("sidecar: script at {}", sidecar_path.display());
 
         let mut child = Command::new(node_path)
@@ -293,6 +352,11 @@ impl SidecarManager {
 
     pub fn available(&self) -> bool {
         self.available.load(Ordering::SeqCst)
+    }
+
+    /// Get the reason the sidecar is unavailable, if any.
+    pub fn unavailable_reason(&self) -> Option<String> {
+        self.unavailable_reason.lock().unwrap().clone()
     }
 
     /// Send a JSON command to the sidecar.

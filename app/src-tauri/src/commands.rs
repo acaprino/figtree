@@ -505,11 +505,20 @@ pub async fn load_builtin_prompts() -> Result<Vec<crate::prompts::BuiltinPrompt>
 
 // ── Agent SDK commands ──────────────────────────────────────────────
 
+#[derive(serde::Serialize)]
+pub struct SidecarStatus {
+    pub available: bool,
+    pub reason: Option<String>,
+}
+
 #[tauri::command]
 pub fn sidecar_available(
     sidecar: State<'_, Arc<SidecarManager>>,
-) -> bool {
-    sidecar.available()
+) -> SidecarStatus {
+    SidecarStatus {
+        available: sidecar.available(),
+        reason: sidecar.unavailable_reason(),
+    }
 }
 
 #[tauri::command]

@@ -96,6 +96,11 @@ export async function getAgentMessages(sessionId: string, dir?: string): Promise
   return invoke("get_agent_messages", { sessionId, dir: dir || null });
 }
 
-export async function isSidecarAvailable(): Promise<boolean> {
-  return invoke<boolean>("sidecar_available");
+export interface SidecarStatus {
+  available: boolean;
+  reason: string | null;
+}
+
+export async function getSidecarStatus(): Promise<SidecarStatus> {
+  return invoke<SidecarStatus>("sidecar_available");
 }
