@@ -2,6 +2,7 @@
 // Protocol: JSON-lines over stdin (commands) / stdout (events) / stderr (logs)
 
 import { query, listSessions, getSessionMessages } from "@anthropic-ai/claude-agent-sdk";
+import Anthropic from "@anthropic-ai/sdk";
 import { createInterface } from "readline";
 
 // Active sessions: tabId → { query, abortController, inputQueue, inputResolve }
@@ -421,6 +422,94 @@ async function handleGetMessages(cmd) {
   }
 }
 
+// ── Autocomplete handler ────────────────────────────────────────────
+
+let anthropicClient = null;
+
+function getAnthropicClient() {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic();
+  }
+  return anthropicClient;
+}
+
+// Rate limiting: max 10 calls per minute per session
+const autocompleteTimestamps = new Map(); // tabId → timestamp[]
+
+function isRateLimited(tabId) {
+  const now = Date.now();
+  const timestamps = autocompleteTimestamps.get(tabId) || [];
+  // Remove timestamps older than 60s
+  const recent = timestamps.filter((t) => now - t < 60000);
+  autocompleteTimestamps.set(tabId, recent);
+  return recent.length >= 10;
+}
+
+function recordAutocompleteCall(tabId) {
+  const timestamps = autocompleteTimestamps.get(tabId) || [];
+  timestamps.push(Date.now());
+  autocompleteTimestamps.set(tabId, timestamps);
+}
+
+async function handleAutocomplete(cmd) {
+  const { tabId, input, context, seq } = cmd;
+
+  // Check rate limit
+  if (isRateLimited(tabId)) {
+    emit({ evt: "autocomplete", tabId, suggestions: [], seq });
+    return;
+  }
+
+  recordAutocompleteCall(tabId);
+
+  try {
+    const client = getAnthropicClient();
+
+    const messages = [];
+    // Add conversation context (last 2-3 messages)
+    if (Array.isArray(context)) {
+      for (const msg of context.slice(-3)) {
+        messages.push({
+          role: msg.role === "assistant" ? "assistant" : "user",
+          content: String(msg.content).slice(0, 500),
+        });
+      }
+    }
+    // Add the partial input as the final user message
+    messages.push({
+      role: "user",
+      content: `Complete this partial input: "${input}"`,
+    });
+
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 150,
+      system: "You are an autocomplete engine for a coding assistant. Given the user's partial input and recent conversation context, suggest 3 short completions of what they might be typing. Return ONLY a JSON array of 3 strings, each being the completion text (the part that comes AFTER what they already typed). Be concise. Example: if input is \"fix the bug in\", return [\" the auth middleware\", \" src/login.ts\", \" the database connection\"]",
+      messages,
+    });
+
+    // Parse the response
+    const text = response.content[0]?.text || "[]";
+    let suggestions;
+    try {
+      // Extract JSON array from response (may have surrounding text)
+      const match = text.match(/\[[\s\S]*\]/);
+      suggestions = match ? JSON.parse(match[0]) : [];
+      // Validate: must be array of strings
+      if (!Array.isArray(suggestions) || !suggestions.every((s) => typeof s === "string")) {
+        suggestions = [];
+      }
+    } catch {
+      suggestions = [];
+    }
+
+    emit({ evt: "autocomplete", tabId, suggestions, seq });
+  } catch (err) {
+    log(`Autocomplete error for ${tabId}:`, err.message);
+    emit({ evt: "autocomplete", tabId, suggestions: [], seq });
+  }
+}
+
 // ── Main loop: read JSON-lines from stdin ───────────────────────────
 
 const rl = createInterface({ input: process.stdin, terminal: false });
@@ -464,6 +553,12 @@ rl.on("line", async (line) => {
         break;
       case "get_messages":
         await handleGetMessages(cmd);
+        break;
+      case "autocomplete":
+        handleAutocomplete(cmd).catch((err) => {
+          log(`Autocomplete error: ${err.message}`);
+          emit({ evt: "autocomplete", tabId: cmd.tabId, suggestions: [], seq: cmd.seq });
+        });
         break;
       default:
         log("Unknown command:", cmd.cmd);

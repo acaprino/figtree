@@ -334,6 +334,7 @@ function AppContent() {
                     onError={handleError}
                     onRequestClose={closeTab}
                     onTaglineChange={handleTaglineChange}
+                    autocompleteEnabled={settings?.autocomplete_enabled !== false}
                   />
                 </ErrorBoundary>
               ) : (

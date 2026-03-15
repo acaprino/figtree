@@ -9,6 +9,7 @@ mod projects;
 mod prompts;
 mod sidecar;
 mod usage_stats;
+mod autocomplete;
 mod watcher;
 
 use std::sync::Arc;
@@ -136,6 +137,8 @@ fn main() {
             commands::agent_set_model,
             commands::list_agent_sessions,
             commands::get_agent_messages,
+            commands::agent_autocomplete,
+            autocomplete::autocomplete_files,
         ])
         .on_window_event(move |window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {

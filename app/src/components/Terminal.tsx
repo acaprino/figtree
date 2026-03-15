@@ -6,6 +6,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { spawnAgent, sendAgentMessage, killAgent, respondPermission, saveClipboardImage } from "../hooks/useAgentSession";
+import { useAutocomplete } from "../hooks/useAutocomplete";
 import { renderAgentEvent } from "../ansiRenderer";
 import { getXtermTheme } from "../themes";
 import { MODELS, EFFORTS } from "../types";
@@ -157,6 +158,7 @@ interface TerminalProps {
   onRequestClose: (tabId: string) => void;
   onAgentResult?: (tabId: string, event: AgentEvent) => void;
   onTaglineChange?: (tabId: string, tagline: string) => void;
+  autocompleteEnabled?: boolean;
 }
 
 export default memo(function Terminal({
@@ -178,6 +180,7 @@ export default memo(function Terminal({
   onRequestClose,
   onAgentResult,
   onTaglineChange,
+  autocompleteEnabled,
 }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -205,6 +208,17 @@ export default memo(function Terminal({
   const spinnerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const responseBookmarkedRef = useRef(false);
   const themeColorsRef = useRef(themeColors);
+
+  const autocomplete = useAutocomplete(
+    xtermRef,
+    tabIdRef,
+    agentInputBufRef,
+    projectPath,
+    autocompleteEnabled !== false,
+    0, // toolIdx — always Claude
+  );
+  const autocompleteRef = useRef(autocomplete);
+  autocompleteRef.current = autocomplete;
 
   useEffect(() => {
     themeColorsRef.current = themeColors;
@@ -418,6 +432,36 @@ export default memo(function Terminal({
         doPaste();
         return false;
       }
+      // Autocomplete: Tab cycles, Right Arrow accepts, Esc dismisses
+      if (agentInputStateRef.current === "awaiting_input") {
+        const ac = autocompleteRef.current;
+        const hasGhost = ac.hasSuggestionRef.current;
+        if (event.key === "Tab" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+          if (hasGhost) {
+            event.preventDefault();
+            ac.cycle();
+            return false;
+          }
+        }
+        if (event.key === "ArrowRight" && !event.ctrlKey && !event.shiftKey) {
+          if (hasGhost) {
+            event.preventDefault();
+            const accepted = ac.accept();
+            if (accepted) {
+              agentInputBufRef.current += accepted;
+              xtermRef.current?.write(accepted);
+            }
+            return false;
+          }
+        }
+        if (event.key === "Escape") {
+          if (hasGhost) {
+            event.preventDefault();
+            ac.dismiss();
+            return false;
+          }
+        }
+      }
       return true;
     });
 
@@ -456,6 +500,7 @@ export default memo(function Terminal({
 
       if (state === "awaiting_input") {
         if (data === "\r") {
+          autocompleteRef.current.dismiss();
           // Send the buffered input
           const text = agentInputBufRef.current;
           agentInputBufRef.current = "";
@@ -474,12 +519,15 @@ export default memo(function Terminal({
             sendAgentMessage(tabIdRef.current, text).catch(() => {});
           }
         } else if (data === "\x7f" || data === "\b") {
+          autocompleteRef.current.dismiss();
           // Backspace
           if (agentInputBufRef.current.length > 0) {
             agentInputBufRef.current = agentInputBufRef.current.slice(0, -1);
             xterm.write("\b \b");
+            autocompleteRef.current.onInputChange();
           }
         } else if (data === "\x03") {
+          autocompleteRef.current.dismiss();
           // Ctrl+C — clear input
           agentInputBufRef.current = "";
           xterm.write("^C\r\n");
@@ -487,13 +535,17 @@ export default memo(function Terminal({
           const rendered = renderAgentEvent({ type: "inputRequired" }, themeColorsRef.current, xterm.cols);
           xterm.write(rendered);
         } else if (data.length === 1 && data >= " ") {
+          autocompleteRef.current.dismiss();
           // Regular character
           agentInputBufRef.current += data;
           xterm.write(data);
+          autocompleteRef.current.onInputChange();
         } else if (data.length > 1 && !data.startsWith("\x1b")) {
+          autocompleteRef.current.dismiss();
           // Pasted text (multi-char, non-escape)
           agentInputBufRef.current += data;
           xterm.write(data);
+          autocompleteRef.current.onInputChange();
         }
         return;
       }
@@ -578,6 +630,7 @@ export default memo(function Terminal({
       resizeRafRef.current = requestAnimationFrame(() => {
         resizeRafRef.current = 0;
         if (cancelled) return;
+        autocompleteRef.current.dismiss();
         lastResizeTimeRef.current = Date.now();
         fitAddon.fit();
       });
@@ -598,6 +651,11 @@ export default memo(function Terminal({
 
       const handleAgentEvent = (event: AgentEvent) => {
         if (cancelled) return;
+
+        if (event.type === "autocomplete") {
+          autocompleteRef.current.handleResponse(event.suggestions, event.seq);
+          return; // Don't render autocomplete events as terminal output
+        }
 
         // Stop spinner before rendering new content (except for thinking deltas)
         if (event.type !== "thinking" && event.type !== "progress" && event.type !== "status") {
@@ -742,6 +800,7 @@ export default memo(function Terminal({
       containerRef.current?.removeEventListener("paste", handleNativePaste, true);
       unlistenDragDrop?.();
       observer.disconnect();
+      autocompleteRef.current.cleanup();
       if (agentStartedRef.current) {
         killAgent(tabIdRef.current).catch(() => {});
       }

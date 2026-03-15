@@ -345,6 +345,23 @@ pub fn agent_send(
 }
 
 #[tauri::command]
+pub fn agent_autocomplete(
+    sidecar: State<'_, Arc<SidecarManager>>,
+    tab_id: String,
+    input: String,
+    context: Vec<serde_json::Value>,
+    seq: u32,
+) -> Result<(), String> {
+    sidecar.send_command(&serde_json::json!({
+        "cmd": "autocomplete",
+        "tabId": tab_id,
+        "input": input,
+        "context": context,
+        "seq": seq,
+    }))
+}
+
+#[tauri::command]
 pub fn agent_resume(
     sidecar: State<'_, Arc<SidecarManager>>,
     tab_id: String,

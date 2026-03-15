@@ -32,6 +32,7 @@ pub enum AgentEvent {
         is_error: bool,
         session_id: String,
     },
+    Autocomplete { suggestions: Vec<String>, seq: u32 },
     Error { code: String, message: String },
     Exit { code: i32 },
 }
@@ -90,6 +91,11 @@ struct SidecarEvent {
     // For get_messages response
     #[serde(default)]
     messages: Option<serde_json::Value>,
+    // For autocomplete response
+    #[serde(default)]
+    suggestions: Option<Vec<String>>,
+    #[serde(default)]
+    seq: u32,
 }
 
 type ChannelMap = Arc<Mutex<HashMap<String, Channel<AgentEvent>>>>;
@@ -309,6 +315,10 @@ impl SidecarManager {
                         },
                         "error" => AgentEvent::Error { code: event.code, message: event.message },
                         "exit" => AgentEvent::Exit { code: event.code.parse().unwrap_or(-1) },
+                        "autocomplete" => AgentEvent::Autocomplete {
+                            suggestions: event.suggestions.unwrap_or_default(),
+                            seq: event.seq,
+                        },
                         "ready" => {
                             log_info!("sidecar: ready signal received");
                             continue;

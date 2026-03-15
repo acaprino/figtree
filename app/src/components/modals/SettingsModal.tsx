@@ -250,6 +250,15 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
               {settings.security_gate ? "ON" : "off"}
             </button>
           </div>
+          <div className="settings-toggle-row">
+            <span>Autocomplete</span>
+            <button
+              className={`settings-toggle-btn ${settings.autocomplete_enabled !== false ? "active" : ""}`}
+              onClick={() => onUpdate({ autocomplete_enabled: !(settings.autocomplete_enabled !== false) })}
+            >
+              {settings.autocomplete_enabled !== false ? "ON" : "off"}
+            </button>
+          </div>
         </div>
       </div>
 
