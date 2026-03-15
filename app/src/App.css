@@ -110,13 +110,33 @@ button, input, select {
   grid-template-columns: var(--sidebar-width) var(--session-panel-width) 1fr;
 }
 
-.app.vertical-tabs .tab-bar {
-  display: none;
+/* Title bar spans all columns */
+.app.vertical-tabs .title-bar {
+  grid-column: 1 / -1;
 }
 
+/* Sidebar in row 2, col 1 */
+.app.vertical-tabs .tab-sidebar {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+/* Session panel in row 2, col 2 */
+.app.vertical-tabs .session-panel {
+  grid-row: 2;
+  grid-column: 2;
+}
+
+/* Tab content fills last column */
 .app.vertical-tabs .tab-content {
+  grid-row: 2;
+  grid-column: -2 / -1;
   min-width: 0;
   min-height: 0;
+}
+
+.app.vertical-tabs .tab-bar {
+  display: none;
 }
 
 .app.vertical-tabs .resize-handle.left {

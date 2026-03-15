@@ -253,7 +253,10 @@ function SessionPanel({ projectPath, isOpen, onClose, onResumeSession, onForkSes
                     title="Fork"
                     aria-label="Fork session"
                   >
-                    {"\u2442"}
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <line x1="5" y1="1" x2="5" y2="9" stroke="currentColor" strokeWidth="1.2"/>
+                      <line x1="5" y1="5" x2="9" y2="2" stroke="currentColor" strokeWidth="1.2"/>
+                    </svg>
                   </button>
                 </div>
               </div>

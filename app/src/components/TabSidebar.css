@@ -218,11 +218,18 @@
 /* ── Footer: action buttons ── */
 .tab-sidebar__footer {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   border-top: 1px solid color-mix(in srgb, var(--surface) 50%, transparent);
+  flex-shrink: 0;
+}
+
+.tab-sidebar__footer .tab-bar-action {
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
 }
 

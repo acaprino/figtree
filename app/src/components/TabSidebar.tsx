@@ -168,9 +168,8 @@ export default memo(function TabSidebar({
       <div className="tab-sidebar__footer">
         <button className="tab-bar-action" onClick={onToggleSessions} title="Sessions (Ctrl+Shift+S)" aria-label="Sessions">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path d="M6 1a5 5 0 1 0 5 5H6V1z" stroke="currentColor" strokeWidth="1.2" fill="none"/>
-            <line x1="6" y1="6" x2="6" y2="2.5" stroke="currentColor" strokeWidth="1.2"/>
-            <line x1="6" y1="6" x2="9" y2="6" stroke="currentColor" strokeWidth="1.2"/>
+            <path d="M2 3.5A4.5 4.5 0 1 1 2 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <polyline points="2,1 2,3.5 4.5,3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </svg>
         </button>
         <button className="tab-bar-action" onClick={onToggleUsage} title="Usage Stats (Ctrl+U)" aria-label="Usage Stats">
