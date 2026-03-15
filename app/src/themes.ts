@@ -23,13 +23,3 @@ export function applyTheme(themeIdx: number): void {
   root.classList.toggle("retro", isRetro);
   invoke("set_window_corner_preference", { retro: isRetro }).catch(() => {});
 }
-
-export function getXtermTheme(themeIdx: number): { background: string; foreground: string; cursor: string; selectionBackground: string } {
-  const theme = THEMES[themeIdx] ?? THEMES[0];
-  return {
-    background: theme.colors.bg,
-    foreground: theme.colors.text,
-    cursor: theme.colors.cursor,
-    selectionBackground: theme.colors.selection,
-  };
-}

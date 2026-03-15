@@ -20,7 +20,7 @@ function buildAboutBox(version: string) {
   Platform   Windows (Tauri 2)
   Frontend   React 19 + TypeScript
   Backend    Rust + Tauri 2
-  Terminal   xterm.js + WebGL`;
+  Display    React Chat UI`;
 }
 
 function buildStatusBox() {
