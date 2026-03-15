@@ -57,7 +57,27 @@ const ANSI_LOGO_PARTS = [
   `${LOGO_COLORS.OUTLINE}     ${LOGO_COLORS.BLUE}█████████████████`,
   `${LOGO_COLORS.OUTLINE}     ${LOGO_COLORS.BLUE}██▓▓▓▓▓▓▓▓▓▓▓▓▓██`,
 ];
-const ANSI_LOGO = ANSI_LOGO_PARTS.join("\r\n") + LOGO_COLORS.R;
+/** "ANVIL" ASCII art text — 5 lines, displayed to the right of the logo, vertically centered.
+ *  Each letter has a fixed column width: A=7, N=8, V=8, I=4, L=8, with 2-space gaps.
+ *  Total width = 43 chars per line. */
+const S = LOGO_COLORS.STEEL;
+//                    A(7)  __N(8)____  __V(8)____  __I(4)  __L(8)____
+const ANSI_TEXT_LINES = [
+  `${S} █████   ██    ██  ██    ██  ████  ██      `,
+  `${S}██   ██  ███   ██  ██    ██   ██   ██      `,
+  `${S}███████  ██ ██ ██   ██  ██    ██   ██      `,
+  `${S}██   ██  ██  ████    ████     ██   ██      `,
+  `${S}██   ██  ██    ██     ██     ████  ████████`,
+];
+// Center 5 text lines within 15 logo lines (start at line 5).
+// Use ANSI absolute column positioning (\x1b[<col>G) so the text always
+// starts at the same column regardless of the logo line's visible width.
+const TEXT_COL = 34; // column where "ANVIL" text starts (1-based)
+const TEXT_START = 5;
+const ANSI_LOGO = ANSI_LOGO_PARTS.map((line, i) => {
+  const ti = i - TEXT_START;
+  return ti >= 0 && ti < ANSI_TEXT_LINES.length ? line + `\x1b[${TEXT_COL}G` + ANSI_TEXT_LINES[ti] : line;
+}).join("\r\n") + LOGO_COLORS.R;
 
 /** Strip characters outside the Basic Multilingual Plane (emoji, supplementary chars)
  *  that become surrogate pairs in UTF-16.  On Windows, passing these through command-line
@@ -446,11 +466,8 @@ export default memo(function Terminal({
             xterm.write("\r\n");
             if (text) {
               agentInputStateRef.current = "processing";
-              xterm.write("\x1b[2m\u28FB Thinking...\x1b[0m");
-              sendAgentMessage(tabIdRef.current, text).catch((err) => {
-                xterm.write(`\r\n\x1b[91mSend failed: ${String(err)}\x1b[0m\r\n`);
-                agentInputStateRef.current = "awaiting_input";
-              });
+              xterm.write(ESC_CURSOR_HIDE);
+              sendAgentMessage(tabIdRef.current, text).catch(() => {});
             }
           } else if (data === "\x7f" || data === "\b") {
             // Backspace
@@ -619,6 +636,7 @@ export default memo(function Terminal({
           if (event.type === "inputRequired") {
             agentInputStateRef.current = "awaiting_input";
             agentInputBufRef.current = "";
+            xterm.write(ESC_CURSOR_SHOW);
           } else if (event.type === "permission") {
             agentInputStateRef.current = "awaiting_permission";
           } else if (event.type === "result") {
