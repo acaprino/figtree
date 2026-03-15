@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface Props {
   cost: number;
   inputTokens: number;
@@ -13,7 +15,7 @@ function fmtTokens(n: number): string {
   return n.toString();
 }
 
-export default function ResultBar({ cost, inputTokens, outputTokens, cacheReadTokens, turns, durationMs }: Props) {
+export default memo(function ResultBar({ cost, inputTokens, outputTokens, cacheReadTokens, turns, durationMs }: Props) {
   const safe = (n: number) => (Number.isFinite(n) ? n : 0);
   const totalTokens = safe(inputTokens) + safe(outputTokens);
   const cached = safe(cacheReadTokens) > 0 ? ` (${fmtTokens(safe(cacheReadTokens))} cached)` : "";
@@ -29,4 +31,4 @@ export default function ResultBar({ cost, inputTokens, outputTokens, cacheReadTo
       <span>{(safe(durationMs) / 1000).toFixed(1)}s</span>
     </div>
   );
-}
+});

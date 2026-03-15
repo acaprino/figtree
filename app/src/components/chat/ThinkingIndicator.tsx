@@ -1,4 +1,6 @@
-export default function ThinkingIndicator() {
+import { memo } from "react";
+
+export default memo(function ThinkingIndicator() {
   return (
     <div className="thinking-indicator">
       <span className="thinking-dot" />
@@ -6,4 +8,4 @@ export default function ThinkingIndicator() {
       <span className="thinking-dot" />
     </div>
   );
-}
+});

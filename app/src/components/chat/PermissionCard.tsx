@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { PermissionSuggestion } from "../../types";
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
   onRespond: (allow: boolean, suggestions?: PermissionSuggestion[]) => void;
 }
 
-export default function PermissionCard({ tool, description, suggestions, resolved, allowed, onRespond }: Props) {
+export default memo(function PermissionCard({ tool, description, suggestions, resolved, allowed, onRespond }: Props) {
   if (resolved) {
     return (
       <div className={`perm-card resolved ${allowed ? "allowed" : "denied"}`}>
@@ -35,4 +36,4 @@ export default function PermissionCard({ tool, description, suggestions, resolve
       </div>
     </div>
   );
-}
+});

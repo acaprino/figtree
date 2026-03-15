@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 
 interface Props {
   tool: string;
@@ -7,7 +7,7 @@ interface Props {
   success?: boolean;
 }
 
-export default function ToolCard({ tool, input, output, success }: Props) {
+export default memo(function ToolCard({ tool, input, output, success }: Props) {
   const [expanded, setExpanded] = useState(false);
   const inputStr = typeof input === "string" ? input : JSON.stringify(input, null, 2);
   const truncatedInput = inputStr.length > 300 ? inputStr.slice(0, 300) + "..." : inputStr;
@@ -28,4 +28,4 @@ export default function ToolCard({ tool, input, output, success }: Props) {
       )}
     </div>
   );
-}
+});

@@ -239,7 +239,9 @@ export default memo(function ChatView({
     setMessages(prev => [...prev, { id: nextId(), role: "user", text, timestamp: Date.now() }]);
     setInputText("");
     setInputState("processing");
-    sendAgentMessage(tabId, text).catch(() => {});
+    sendAgentMessage(tabId, text).catch((err) => {
+      setMessages(prev => [...prev, { id: nextId(), role: "error", code: "send", message: String(err), timestamp: Date.now() }]);
+    });
   };
 
   // ── Permission response ─────────────────────────────────────────
@@ -262,6 +264,9 @@ export default memo(function ChatView({
   return (
     <div className="chat-view" style={{ fontFamily: `'${fontFamily}', 'Consolas', monospace`, fontSize }} onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="chat-messages">
+        {messages.length === 0 && inputState === "idle" && (
+          <div className="chat-msg chat-msg--status">Starting agent...</div>
+        )}
         {messages.map((msg) => {
           switch (msg.role) {
             case "user":

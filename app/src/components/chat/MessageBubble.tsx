@@ -1,3 +1,4 @@
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -6,10 +7,10 @@ interface Props {
   streaming?: boolean;
 }
 
-export default function MessageBubble({ text, streaming }: Props) {
+export default memo(function MessageBubble({ text, streaming }: Props) {
   return (
     <div className={`msg-bubble${streaming ? " streaming" : ""}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
     </div>
   );
-}
+});
