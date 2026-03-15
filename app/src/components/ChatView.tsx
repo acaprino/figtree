@@ -84,6 +84,7 @@ export default memo(function ChatView({
 
   // ── Agent lifecycle ─────────────────────────────────────────────
   useEffect(() => {
+    console.log("[ChatView] useEffect running, tabId=", tabId);
     let cancelled = false;
 
     const modelId = MODELS[modelIdx]?.id || "";
@@ -95,6 +96,7 @@ export default memo(function ChatView({
 
     const handleAgentEvent = (event: AgentEvent) => {
       if (cancelled) return;
+      console.debug(`[ChatView] event: ${event.type}`, event);
 
       if (event.type === "assistant") {
         if (event.streaming) {
@@ -219,20 +221,32 @@ export default memo(function ChatView({
         ? forkAgent(tabId, forkSessionId, projectPath, modelId, effortId, handleAgentEvent)
         : spawnAgent(tabId, projectPath, modelId, effortId, stripNonBmp(systemPrompt), skipPerms, handleAgentEvent);
 
+    console.debug(`[ChatView] launching agent for tab=${tabId} model=${modelId}`);
     launchPromise
       .then(() => {
         if (cancelled) { killAgent(tabId).catch(() => {}); return; }
+        console.debug(`[ChatView] agent started for tab=${tabId}`);
         agentStartedRef.current = true;
         onSessionCreatedRef.current(tabIdRef.current, tabId);
       })
       .catch((err) => {
         if (cancelled) return;
+        console.error(`[ChatView] agent spawn failed:`, err);
         onErrorRef.current(tabIdRef.current, String(err));
       });
 
     return () => {
       cancelled = true;
-      if (agentStartedRef.current) killAgent(tabIdRef.current).catch(() => {});
+      // Delay kill to avoid React 18 StrictMode race: in dev mode, effects
+      // run → cleanup → re-run. The cleanup's killAgent would unregister the
+      // Channel that the re-run just registered. Deferring lets the re-run's
+      // spawnAgent overwrite the channel first; if no re-run happens (real
+      // unmount), the kill fires normally after the timeout.
+      const tid = tabIdRef.current;
+      const started = agentStartedRef.current;
+      setTimeout(() => {
+        if (started) killAgent(tid).catch(() => {});
+      }, 100);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
