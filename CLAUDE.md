@@ -20,12 +20,12 @@ A Windows-only Tauri 2 desktop app for selecting and launching Claude Code Agent
 ## Key Paths
 
 - `app/src/components/` - TabBar, TabSidebar, TitleBar, Terminal, Minimap, BookmarkList, ProjectList, InfoStrip, SessionConfig, NewTabPage, AboutPage, UsagePage, SystemPromptPage, SessionBrowser, Modal, ErrorBoundary, AsciiLogo, FolderTree, SegmentedControl
-- `app/src/hooks/` - useTabManager, useProjects, useAgentSession
+- `app/src/hooks/` - useTabManager, useProjects, useAgentSession, useAutocomplete
 - `app/src/ansiRenderer.ts` - Converts AgentEvent objects to styled ANSI text for xterm display
 - `app/src/contexts/ProjectsContext.tsx` - Shared project state
 - `app/src/themes.ts` - Theme application to CSS variables and xterm
 - `app/src/types.ts` - Type definitions, model/effort/sort/theme constants, AgentEvent types
-- `app/src-tauri/src/` - Rust backend: main.rs, sidecar.rs, projects.rs, commands.rs, prompts.rs, usage_stats.rs, marketplace.rs, logging.rs, watcher.rs
+- `app/src-tauri/src/` - Rust backend: main.rs, sidecar.rs, projects.rs, commands.rs, prompts.rs, usage_stats.rs, marketplace.rs, autocomplete.rs, logging.rs, watcher.rs
 - `sidecar/sidecar.js` - Node.js process running Agent SDK, communicates with Rust via JSON-lines
 
 For detailed architecture, IPC protocol, and development guide, see `docs/TECHNICAL.md`.

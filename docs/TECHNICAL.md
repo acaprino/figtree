@@ -146,7 +146,7 @@ graph TB
                 TTB["TitleBar"]
             end
 
-            SB["StatusBar"]
+            SC2["SessionConfig"]
             PL["ProjectList"]
             MOD["Modal"]
 
@@ -154,7 +154,7 @@ graph TB
             App --> TBS
             App --> TTB
             NTP --> PL
-            NTP --> SB
+            NTP --> SC2
             NTP --> MOD
             EB --> TER
         end
@@ -221,6 +221,7 @@ graph TB
 | `logging` | `logging.rs` | File + stderr logging with macros |
 | `watcher` | `watcher.rs` | Filesystem watcher for project directory changes |
 | `marketplace` | `marketplace.rs` | Anvil marketplace sync |
+| `autocomplete` | `autocomplete.rs` | File path autocomplete for agent input |
 
 ### main.rs
 
@@ -547,7 +548,7 @@ graph TD
     SPP["SystemPromptPage"]
     EB["ErrorBoundary"]
     PL["ProjectList"]
-    SB["StatusBar"]
+    SC2["SessionConfig"]
     MOD["Modal"]
     BK["BookmarkList"]
     MM["Minimap"]
@@ -568,7 +569,7 @@ graph TD
     TER --> MM
     TER --> BK
     NTP --> PL
-    NTP --> SB
+    NTP --> SC2
 ```
 
 ### Components
@@ -777,11 +778,19 @@ Auto-scrolls selected item into view. Shows skeleton loader (8 animated rows) wh
 
 Wrapped in `React.memo`.
 
-#### StatusBar (`StatusBar.tsx`)
+#### SessionConfig (`SessionConfig.tsx`)
 
-**Source:** `app/src/components/StatusBar.tsx`
+**Source:** `app/src/components/SessionConfig.tsx`
 
-Displays current settings and provides clickable buttons for all settings. Split into left section (action buttons) and right section (settings: Model, Effort, Sort, Perms).
+Displays current session settings (model, effort, permissions) with clickable segmented controls. Shown below the project list in the NewTabPage.
+
+Wrapped in `React.memo`.
+
+#### InfoStrip (`InfoStrip.tsx`)
+
+**Source:** `app/src/components/InfoStrip.tsx`
+
+Compact status strip showing project count, filter status, and action hints. Shown at the bottom of the NewTabPage.
 
 Wrapped in `React.memo`.
 
@@ -901,6 +910,7 @@ Not a React hook -- exports standalone async functions that wrap Tauri IPC calls
 | `listAgentSessions` | `(cwd?) => Promise<SessionInfo[]>` | `list_agent_sessions` |
 | `getAgentMessages` | `(sessionId, dir?) => Promise<unknown>` | `get_agent_messages` |
 | `saveClipboardImage` | `() => Promise<string>` | `save_clipboard_image` |
+| `requestAutocomplete` | `(tabId, input, context, seq) => Promise<void>` | `agent_autocomplete` |
 
 `spawnAgent` creates a Tauri `Channel<AgentEvent>` and passes it to the backend. Events flow from sidecar -> Rust -> Channel -> frontend callback.
 
@@ -1095,6 +1105,32 @@ Gets messages from a past SDK session.
 **Returns:** `Result<serde_json::Value, String>`
 
 **Source:** `commands.rs:467-486`
+
+### Autocomplete
+
+#### `agent_autocomplete` (synchronous)
+
+Sends an autocomplete request to the sidecar for LLM-based input suggestions.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tabId` | `String` | Tab identifier |
+| `input` | `String` | Current input text |
+| `context` | `Vec<Value>` | Conversation context |
+| `seq` | `u32` | Sequence number for deduplication |
+
+**Returns:** `Result<(), String>`
+
+#### `autocomplete_files`
+
+Local file path autocomplete (no sidecar needed).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `cwd` | `String` | Working directory |
+| `input` | `String` | Current input text |
+
+**Returns:** `Result<Vec<String>, String>` -- list of matching file paths.
 
 ### Project Management
 
@@ -1555,13 +1591,15 @@ app/
       SystemPromptPage.tsx + .css # System prompt editor
       SessionBrowser.tsx + .css # Past session browser
       ProjectList.tsx + .css    # Scrollable project list
-      StatusBar.tsx + .css      # Settings status bar
+      SessionConfig.tsx + .css  # Session settings (model, effort, perms)
+      InfoStrip.tsx + .css      # Status strip with project count/hints
       Modal.tsx + .css          # Reusable modal
       ErrorBoundary.tsx         # Error boundary for tab content
     hooks/
       useTabManager.ts          # Tab lifecycle + session persistence
       useProjects.ts            # Settings, scanning, filtering
       useAgentSession.ts        # Agent SDK IPC wrappers
+      useAutocomplete.ts        # Input autocomplete hook
     contexts/
       ProjectsContext.tsx       # Shared project state
   src-tauri/
@@ -1575,6 +1613,7 @@ app/
       logging.rs                # File + stderr logging
       watcher.rs                # Filesystem watcher for project dirs
       marketplace.rs            # Anvil marketplace sync
+      autocomplete.rs           # File path autocomplete
     data/
       prompts/                  # System prompt .md files
     tauri.conf.json             # Tauri configuration
