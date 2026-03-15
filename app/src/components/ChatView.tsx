@@ -72,9 +72,15 @@ export default memo(function ChatView({
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages — only if user is near the bottom
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    if (nearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    }
   }, [messages]);
 
   // Focus input when active + awaiting input
@@ -133,12 +139,13 @@ export default memo(function ChatView({
         }
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "toolUse") {
-        // Finalize any streaming assistant text
+        // Finalize any streaming assistant text — capture text before resetting
         if (streamingMsgId) {
           const id = streamingMsgId;
-          setMessages(prev => prev.map(m => m.id === id ? { ...m, streaming: false } as ChatMessage : m));
+          const finalText = streamingText;
           streamingMsgId = null;
           streamingText = "";
+          setMessages(prev => prev.map(m => m.id === id ? { ...m, text: finalText, streaming: false } as ChatMessage : m));
         }
         setMessages(prev => [...prev, { id: nextId(), role: "tool", tool: event.tool, input: event.input, timestamp: Date.now() }]);
         const inp = event.input as Record<string, string> | undefined;
@@ -148,9 +155,11 @@ export default memo(function ChatView({
             : "";
         onTaglineChangeRef.current?.(tabIdRef.current, detail ? `${event.tool}: ${detail}` : event.tool);
       } else if (event.type === "toolResult") {
-        // Update the most recent tool message with output
+        // Update the most recent matching tool message with output
         setMessages(prev => {
-          const idx = [...prev].reverse().findIndex(m => m.role === "tool" && !("output" in m && m.output));
+          const idx = [...prev].reverse().findIndex(m =>
+            m.role === "tool" && m.tool === event.tool && m.output === undefined
+          );
           if (idx >= 0) {
             const realIdx = prev.length - 1 - idx;
             const next = [...prev];
@@ -245,7 +254,11 @@ export default memo(function ChatView({
   };
 
   // ── Permission response ─────────────────────────────────────────
+  const respondedIdsRef = useRef(new Set<string>());
   const handlePermissionRespond = (msgId: string, allow: boolean, suggestions?: PermissionSuggestion[]) => {
+    // Guard against double-click race
+    if (respondedIdsRef.current.has(msgId)) return;
+    respondedIdsRef.current.add(msgId);
     setMessages(prev => prev.map(m =>
       m.id === msgId && m.role === "permission" ? { ...m, resolved: true, allowed: allow } : m
     ));
@@ -263,7 +276,7 @@ export default memo(function ChatView({
 
   return (
     <div className="chat-view" style={{ fontFamily: `'${fontFamily}', 'Consolas', monospace`, fontSize }} onKeyDown={handleKeyDown} tabIndex={0}>
-      <div className="chat-messages">
+      <div ref={chatContainerRef} className="chat-messages">
         {messages.length === 0 && inputState === "idle" && (
           <div className="chat-msg chat-msg--status">Starting agent...</div>
         )}
