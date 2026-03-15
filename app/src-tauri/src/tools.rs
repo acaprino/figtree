@@ -45,7 +45,7 @@ pub fn build_claude_command(
     effort_idx: usize,
     skip_perms: bool,
     autocompact: bool,
-    append_system_prompt: &str,
+    prompt_file: Option<&Path>,
 ) -> (String, Vec<String>, bool) {
     let model_id = MODELS
         .get(model_idx)
@@ -72,9 +72,12 @@ pub fn build_claude_command(
         claude_args.push("80".to_string());
     }
 
-    if !append_system_prompt.is_empty() {
+    if let Some(file) = prompt_file {
         claude_args.push("--append-system-prompt".to_string());
-        claude_args.push(append_system_prompt.to_string());
+        // Use @filepath convention to read prompt from file instead of
+        // embedding the full text on the command line (avoids the 32K
+        // character CreateProcessW limit).
+        claude_args.push(format!("@{}", file.to_string_lossy()));
     }
 
     let result = if is_shim(&exe_str) {
@@ -83,7 +86,7 @@ pub fn build_claude_command(
     } else {
         (exe_str, claude_args, false)
     };
-    log_info!("tools: claude command built — model={model_id}, effort={effort}, skip_perms={skip_perms}, autocompact={autocompact}, has_prompt={}", !append_system_prompt.is_empty());
+    log_info!("tools: claude command built — model={model_id}, effort={effort}, skip_perms={skip_perms}, autocompact={autocompact}, has_prompt={}", prompt_file.is_some());
     result
 }
 

@@ -8,8 +8,46 @@ use crate::session::{PtyEvent, SessionRegistry};
 use crate::usage_stats::{self, TokenUsageStats};
 use crate::watcher::ProjectWatcher;
 
-/// Max system prompt size (100 KB) — prevents CreateProcessW command-line overflow.
+/// Max system prompt size (100 KB).
 const MAX_SYSTEM_PROMPT_LEN: usize = 100_000;
+
+/// Max age for temp files before cleanup (1 hour).
+const STALE_FILE_SECS: u64 = 3600;
+
+/// Remove files older than `max_age` from `dir`.
+fn cleanup_stale_files(dir: &std::path::Path, max_age: std::time::Duration) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        let cutoff = std::time::SystemTime::now() - max_age;
+        for entry in entries.flatten() {
+            if let Ok(meta) = entry.metadata() {
+                if meta.modified().unwrap_or(std::time::UNIX_EPOCH) < cutoff {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+}
+
+/// Write the system prompt to a temp file and return its path.
+/// Using a file avoids the Windows CreateProcessW 32K character command-line limit.
+fn write_prompt_file(content: &str) -> Result<std::path::PathBuf, String> {
+    let dir = std::env::temp_dir().join("anvil_prompts");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Failed to create prompt temp dir: {e}"))?;
+
+    cleanup_stale_files(&dir, std::time::Duration::from_secs(STALE_FILE_SECS));
+
+    let id = uuid::Uuid::new_v4();
+    let path = dir.join(format!("prompt_{id}.txt"));
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, content.as_bytes()))
+        .map_err(|e| format!("Failed to write prompt file: {e}"))?;
+    log_info!("spawn_tool: wrote system prompt ({} bytes)", content.len());
+    Ok(path)
+}
 
 /// Quote a single argument for Windows CreateProcessW (CommandLineToArgvW rules).
 /// Always wraps in double quotes and escapes embedded `"` and trailing `\`.
@@ -103,13 +141,20 @@ pub async fn spawn_tool(
         return Err(format!("System prompt too large (max {MAX_SYSTEM_PROMPT_LEN} bytes)"));
     }
 
+    // Write system prompt to a temp file to avoid the 32K char CreateProcessW limit.
+    let prompt_file = if !system_prompt.is_empty() {
+        Some(write_prompt_file(&system_prompt)?)
+    } else {
+        None
+    };
+
     let (program, args, env, is_cmd) = match tool_idx {
         0 => {
             let claude_exe = tools::resolve_claude_exe().map_err(|e| {
                 log_error!("spawn_tool: failed to resolve claude exe: {e}");
                 e
             })?;
-            let (p, a, cmd) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms, autocompact, &system_prompt);
+            let (p, a, cmd) = tools::build_claude_command(&claude_exe, model_idx, effort_idx, skip_perms, autocompact, prompt_file.as_deref());
             (p, a, tools::claude_env(), cmd)
         }
         1 => {
@@ -137,51 +182,24 @@ pub async fn spawn_tool(
         .map(|(i, p)| if i == 0 { p.clone() } else { quoter(p) })
         .collect::<Vec<_>>()
         .join(" ");
-    // Log the command used to launch the session.  Redact the --append-system-prompt
-    // value (the next quoted argument) since it can be large and contain user content.
-    // The command line has the form: ... "--append-system-prompt" "prompt text..." ...
-    // We search for the quoted flag token to correctly locate the value argument.
-    let log_cmd: std::borrow::Cow<str> = {
-        let flag_token = "\"--append-system-prompt\"";
-        if let Some(flag_pos) = command_line.find(flag_token) {
-            let after_flag = flag_pos + flag_token.len();
-            let rest = &command_line[after_flag..];
-            let trimmed = rest.trim_start();
-            let skip_ws = rest.len() - trimmed.len();
-            let value_end = if trimmed.starts_with('"') {
-                // Find closing quote (respecting escaped quotes from both
-                // quote_arg `\"` and quote_arg_cmd `""`)
-                let mut i = 1;
-                let bytes = trimmed.as_bytes();
-                while i < bytes.len() {
-                    if bytes[i] == b'\\' && i + 1 < bytes.len() && bytes[i + 1] == b'"' {
-                        i += 2; continue; // skip \" (quote_arg style)
-                    }
-                    if bytes[i] == b'"' {
-                        if i + 1 < bytes.len() && bytes[i + 1] == b'"' {
-                            i += 2; continue; // skip "" (quote_arg_cmd style)
-                        }
-                        i += 1; break; // closing quote
-                    }
-                    i += 1;
-                }
-                after_flag + skip_ws + i
-            } else {
-                // Unquoted: ends at next whitespace
-                after_flag + skip_ws + trimmed.find(' ').unwrap_or(trimmed.len())
-            };
-            std::borrow::Cow::Owned(format!(
-                "{}\"--append-system-prompt\" <redacted>{}",
-                &command_line[..flag_pos],
-                &command_line[value_end..],
-            ))
-        } else {
-            std::borrow::Cow::Borrowed(&command_line)
-        }
-    };
-    log_info!("spawn_tool: command={log_cmd}");
+    // Log with prompt file path redacted (content is in the temp file, not the command line).
+    if prompt_file.is_some() {
+        let redacted = command_line
+            .find("\"--append-system-prompt\"")
+            .map(|pos| format!("{}--append-system-prompt <file>", &command_line[..pos]))
+            .unwrap_or_else(|| command_line.clone());
+        log_info!("spawn_tool: command={redacted}");
+    } else {
+        log_info!("spawn_tool: command={command_line}");
+    }
 
     let result = registry.spawn(&command_line, &project_path, &env, cols, rows, on_event);
+
+    // Clean up the temp prompt file now that the process has been created.
+    if let Some(ref pf) = prompt_file {
+        let _ = std::fs::remove_file(pf);
+    }
+
     match &result {
         Ok(id) => log_info!("spawn_tool: session created id={id}"),
         Err(e) => log_error!("spawn_tool: failed: {e}"),
@@ -363,17 +381,7 @@ pub async fn save_clipboard_image() -> Result<String, String> {
         std::fs::create_dir_all(&temp_dir)
             .map_err(|e| format!("Failed to create temp dir: {e}"))?;
 
-        // Clean up files older than 1 hour
-        if let Ok(entries) = std::fs::read_dir(&temp_dir) {
-            let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
-            for entry in entries.flatten() {
-                if let Ok(meta) = entry.metadata() {
-                    if meta.modified().unwrap_or(std::time::UNIX_EPOCH) < cutoff {
-                        let _ = std::fs::remove_file(entry.path());
-                    }
-                }
-            }
-        }
+        cleanup_stale_files(&temp_dir, std::time::Duration::from_secs(STALE_FILE_SECS));
 
         let id = uuid::Uuid::new_v4();
         let path = temp_dir.join(format!("clipboard_{id}.png"));
