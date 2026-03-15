@@ -7,7 +7,7 @@ import { ProjectsProvider, useProjectsContext } from "./contexts/ProjectsContext
 import TabBar from "./components/TabBar";
 import TitleBar from "./components/TitleBar";
 import TabSidebar from "./components/TabSidebar";
-import Terminal from "./components/Terminal";
+import ChatView from "./components/ChatView";
 import NewTabPage from "./components/NewTabPage";
 import AboutPage from "./components/AboutPage";
 import UsagePage from "./components/UsagePage";
@@ -373,7 +373,7 @@ function AppContent() {
                 </ErrorBoundary>
               ) : tab.type === "agent" ? (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
-                  <Terminal
+                  <ChatView
                     key={`${tab.id}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}
                     tabId={tab.id}
                     projectPath={tab.projectPath!}
@@ -381,7 +381,6 @@ function AppContent() {
                     effortIdx={tab.effortIdx ?? 0}
                     skipPerms={tab.skipPerms ?? false}
                     systemPrompt={systemPrompt}
-                    themeIdx={themeIdx}
                     themeColors={THEMES[themeIdx]?.colors ?? THEMES[0].colors}
                     fontFamily={fontFamily}
                     fontSize={fontSize}
