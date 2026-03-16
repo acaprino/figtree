@@ -220,6 +220,10 @@ export default memo(function ChatView({
         setMessages(prev => [...prev, { id: nextId(), role: "error", code: event.code, message: event.message, timestamp: Date.now() }]);
       } else if (event.type === "exit") {
         exitedRef.current = true;
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current);
+          refreshIntervalRef.current = null;
+        }
         onExitRef.current(tabIdRef.current, event.code);
       } else if (event.type === "progress") {
         // Tool progress — show as transient status
@@ -365,6 +369,8 @@ export default memo(function ChatView({
     switch (command.name) {
       case "/clear":
         setMessages([]);
+        // Also clear SDK conversation history so Claude doesn't see old messages
+        sendAgentMessage(tabId, "/clear").catch(console.error);
         break;
       case "/sidebar":
         setSidebarOpen((prev) => !prev);

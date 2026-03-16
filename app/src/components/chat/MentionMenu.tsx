@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef } from "react";
+import { memo, useState, useEffect, useRef, useMemo } from "react";
 import type { AgentInfoSDK } from "../../types";
 
 export interface Mention {
@@ -17,14 +17,16 @@ export default memo(function MentionMenu({ filter, agents = [], onSelect, onDism
   const [selectedIdx, setSelectedIdx] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const options: Mention[] = agents.map((a) => ({
-    name: `@${a.name}`,
-    display: a.description,
-  }));
-
-  const filtered = options.filter(
-    (m) => m.name.toLowerCase().includes(filter.toLowerCase()) || m.display.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const options: Mention[] = agents.map((a) => ({
+      name: `@${a.name}`,
+      display: a.description,
+    }));
+    const lf = filter.toLowerCase();
+    return options.filter(
+      (m) => m.name.toLowerCase().includes(lf) || m.display.toLowerCase().includes(lf),
+    );
+  }, [agents, filter]);
 
   useEffect(() => { setSelectedIdx(0); }, [filter]);
 

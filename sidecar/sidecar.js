@@ -418,7 +418,7 @@ async function handleSetModel(cmd) {
 }
 
 async function handleRefreshCommands(cmd) {
-  const sessionTabId = cmd.sessionTabId || cmd.tabId;
+  const sessionTabId = cmd.sessionTabId;
   const session = sessions.get(sessionTabId);
   if (!session?.query) {
     emit({ evt: "commands", tabId: cmd.tabId, commands: [], agents: [] });

@@ -525,5 +525,8 @@ pub async fn refresh_commands(
         "sessionTabId": tab_id,
     }))?;
 
-    rx.await.map_err(|_| "Sidecar did not respond".to_string())
+    tokio::time::timeout(std::time::Duration::from_secs(10), rx)
+        .await
+        .map_err(|_| "Sidecar command refresh timed out".to_string())?
+        .map_err(|_| "Sidecar did not respond".to_string())
 }
