@@ -88,6 +88,8 @@ export default memo(function ChatView({
   // ── Agent lifecycle ─────────────────────────────────────────────
   useEffect(() => {
     pendingKillRef.current = false; // Cancel any deferred kill from StrictMode cleanup
+    setMessages([]);               // Clear stale messages from previous StrictMode mount
+    setInputState("idle");
     let cancelled = false;
 
     const modelId = MODELS[modelIdx]?.id || "";
@@ -207,7 +209,7 @@ export default memo(function ChatView({
       } else if (event.type === "autocomplete" || event.type === "status") {
         // autocomplete: not implemented yet for chat UI
         // status: only show non-null statuses
-        if (event.type === "status" && event.status && event.status !== "null") {
+        if (event.type === "status" && event.status && event.status !== "null" && event.status !== "started") {
           setMessages(prev => [...prev, { id: nextId(), role: "status", status: event.status, model: event.model, timestamp: Date.now() }]);
         }
       }

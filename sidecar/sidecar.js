@@ -27,7 +27,7 @@ async function handleCreate(cmd) {
   if (sessions.has(tabId)) {
     // Kill existing session (React 18 StrictMode sends create→create→kill)
     log(`Replacing existing session for tab ${tabId}`);
-    handleKill({ tabId });
+    handleKill({ tabId }, true); // Silent — don't emit exit (would remove Channel)
   }
 
   const abortController = new AbortController();
@@ -313,7 +313,7 @@ function handleSend(cmd) {
   session._pushInput(cmd.text);
 }
 
-function handleKill(cmd) {
+function handleKill(cmd, silent = false) {
   const session = sessions.get(cmd.tabId);
   if (!session) return;
 
@@ -330,7 +330,9 @@ function handleKill(cmd) {
   session.query?.close();
   sessions.delete(cmd.tabId);
   autocompleteTimestamps.delete(cmd.tabId);
-  emit({ evt: "exit", tabId: cmd.tabId, code: -1 });
+  // Silent mode: don't emit exit (used when replacing a session in handleCreate,
+  // because the exit event would cause Rust to remove the Channel).
+  if (!silent) emit({ evt: "exit", tabId: cmd.tabId, code: -1 });
 }
 
 function handlePermissionResponse(cmd) {
