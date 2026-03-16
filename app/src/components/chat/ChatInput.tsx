@@ -234,14 +234,17 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
           />
         )}
         <div className="chat-input-row">
-          <button
-            className="chat-input-attach-btn"
-            onClick={handleAttachClick}
-            title="Attach files"
-            disabled={disabled}
-          >
-            +
-          </button>
+          {inputStyle !== "terminal" && (
+            <button
+              className="chat-input-attach-btn"
+              onClick={handleAttachClick}
+              title="Attach files"
+              aria-label="Attach files"
+              disabled={disabled}
+            >
+              +
+            </button>
+          )}
           <textarea
             ref={textareaRef}
             className="chat-input-textarea"
@@ -249,7 +252,7 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder="Type a message... (/ for commands, @ for agents)"
+            placeholder={processing ? "Claude is working... (Ctrl+C to interrupt)" : "Type a message... (/ for commands, @ for agents)"}
             rows={1}
             disabled={disabled}
           />
@@ -258,6 +261,7 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
             onClick={handleSubmit}
             disabled={disabled || !hasContent}
             title="Send message"
+            aria-label="Send message"
           >
             &gt;
           </button>

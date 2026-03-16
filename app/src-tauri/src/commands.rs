@@ -303,6 +303,7 @@ pub fn spawn_agent(
     effort: String,
     system_prompt: String,
     skip_perms: bool,
+    plugins: Vec<String>,
     on_event: Channel<AgentEvent>,
 ) -> Result<(), String> {
     if !sidecar.available() {
@@ -328,6 +329,7 @@ pub fn spawn_agent(
         "effort": effort,
         "systemPrompt": if system_prompt.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(system_prompt) },
         "skipPerms": skip_perms,
+        "plugins": plugins,
     }))
 }
 
@@ -369,6 +371,7 @@ pub fn agent_resume(
     project_path: String,
     model: String,
     effort: String,
+    plugins: Vec<String>,
     on_event: Channel<AgentEvent>,
 ) -> Result<(), String> {
     if !sidecar.available() {
@@ -389,6 +392,7 @@ pub fn agent_resume(
         "cwd": project_path,
         "model": if model.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(model) },
         "effort": effort,
+        "plugins": plugins,
     }))
 }
 
@@ -400,6 +404,7 @@ pub fn agent_fork(
     project_path: String,
     model: String,
     effort: String,
+    plugins: Vec<String>,
     on_event: Channel<AgentEvent>,
 ) -> Result<(), String> {
     if !sidecar.available() {
@@ -420,6 +425,7 @@ pub fn agent_fork(
         "cwd": project_path,
         "model": if model.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(model) },
         "effort": effort,
+        "plugins": plugins,
     }))
 }
 
@@ -529,4 +535,20 @@ pub async fn refresh_commands(
         .await
         .map_err(|_| "Sidecar command refresh timed out".to_string())?
         .map_err(|_| "Sidecar did not respond".to_string())
+}
+
+// ── Marketplace commands ────────────────────────────────────────────
+
+#[tauri::command]
+pub fn get_marketplace_plugins() -> Vec<String> {
+    crate::marketplace::get_plugin_paths()
+}
+
+#[tauri::command]
+pub fn set_marketplace_global(enabled: bool) -> Result<(), String> {
+    if enabled {
+        crate::marketplace::enable_global()
+    } else {
+        crate::marketplace::disable_global()
+    }
 }

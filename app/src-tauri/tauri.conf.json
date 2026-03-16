@@ -27,6 +27,6 @@
     }
   },
   "bundle": {
-    "resources": ["data/prompts/*"]
+    "resources": ["data/prompts/*", "data/marketplace/plugins/**/*", "data/marketplace/.claude-plugin/marketplace.json"]
   }
 }

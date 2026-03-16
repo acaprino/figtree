@@ -99,10 +99,11 @@
   resize: none;
   outline: none;
   box-sizing: border-box;
-  max-height: calc(var(--text-base) * 1.5 * 6 + var(--space-1) * 2);
+  max-height: calc(1em * 1.5 * 6 + var(--space-1) * 2);
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.5;
   caret-color: var(--accent);
+  transition: opacity 0.2s ease-out;
 }
 
 /* Processing state: no animation */
@@ -130,7 +131,7 @@
 
 .chat-input-send-btn:hover { opacity: 1; }
 .chat-input-send-btn:active { transform: translateY(1px); }
-.chat-input-send-btn:disabled { opacity: 0.15; cursor: default; }
+.chat-input-send-btn:disabled { opacity: 0.15; cursor: default; pointer-events: none; }
 
 /* ── Drag & Drop Overlay ──────────────────────────────────────── */
 .chat-drop-overlay {
@@ -195,6 +196,12 @@
   max-height: 240px;
   overflow-y: auto;
   z-index: var(--z-modal);
+  animation: menu-enter 0.12s ease-out;
+}
+
+@keyframes menu-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .command-menu::-webkit-scrollbar { width: 3px; }
@@ -226,7 +233,7 @@
   padding: 2px var(--space-2);
   cursor: pointer;
   font-size: var(--text-sm);
-  transition: background 0.05s;
+  transition: background 0.1s ease-out;
 }
 
 .command-item:hover,

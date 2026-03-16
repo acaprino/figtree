@@ -72,11 +72,18 @@ fn main() {
             watcher.watch_dirs(&settings.project_dirs, &settings.single_project_dirs);
             app.manage(Arc::new(watcher));
 
-            // Sync anvil-toolset marketplace before any session can start.
-            // Runs synchronously to avoid race conditions with Claude Code
-            // reading/writing settings.json concurrently.
-            log_info!("setup: syncing marketplace");
-            marketplace::sync_marketplace();
+            // On startup, if marketplace_global is disabled, clean stale entries
+            // from ~/.claude/settings.json (one-time migration from old git-clone approach).
+            let startup_settings = projects::load_settings();
+            let marketplace_global = startup_settings.extra
+                .get("marketplace_global")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if !marketplace_global {
+                if let Err(e) = marketplace::disable_global() {
+                    log_warn!("marketplace: cleanup failed: {e}");
+                }
+            }
 
             // Auto-grant clipboard permission to suppress the WebView2 permission dialog.
             if let Some(window) = app.get_webview_window("main") {
@@ -140,6 +147,8 @@ fn main() {
             commands::get_agent_messages,
             commands::agent_autocomplete,
             commands::refresh_commands,
+            commands::get_marketplace_plugins,
+            commands::set_marketplace_global,
             autocomplete::autocomplete_files,
         ])
         .on_window_event(move |window, event| {

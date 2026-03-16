@@ -1,7 +1,8 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, respondPermission, refreshCommands } from "../hooks/useAgentSession";
 import { MODELS, EFFORTS } from "../types";
 import type { AgentEvent, Attachment, ChatMessage, PermissionSuggestion, SlashCommand, AgentInfoSDK } from "../types";
+import { open } from "@tauri-apps/plugin-dialog";
 import { sanitizeInput } from "../utils/sanitizeInput";
 import ChatInput from "./chat/ChatInput";
 import type { Command } from "./chat/CommandMenu";
@@ -27,6 +28,7 @@ interface ChatViewProps {
   onError: (tabId: string, msg: string) => void;
   onTaglineChange?: (tabId: string, tagline: string) => void;
   inputStyle?: "chat" | "terminal";
+  plugins?: string[];
   resumeSessionId?: string;
   forkSessionId?: string;
 }
@@ -35,7 +37,7 @@ export default memo(function ChatView({
   tabId, projectPath, modelIdx, effortIdx, skipPerms, systemPrompt,
   isActive,
   onSessionCreated, onNewOutput, onExit, onError, onTaglineChange,
-  inputStyle = "terminal", resumeSessionId, forkSessionId,
+  inputStyle = "terminal", plugins = [], resumeSessionId, forkSessionId,
 }: ChatViewProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputState, setInputState] = useState<"idle" | "awaiting_input" | "processing">("idle");
@@ -112,6 +114,16 @@ export default memo(function ChatView({
     let streamingMsgId: string | null = null;
     let streamingText = "";
 
+    // Extracted helper: finalize any pending streaming message
+    const finalizeStreaming = () => {
+      if (!streamingMsgId) return;
+      const id = streamingMsgId;
+      const finalText = streamingText;
+      streamingMsgId = null;
+      streamingText = "";
+      setMessages(prev => prev.map(m => m.id === id ? { ...m, text: finalText, streaming: false } as ChatMessage : m));
+    };
+
     const handleAgentEvent = (event: AgentEvent) => {
       if (cancelled) return;
 
@@ -126,38 +138,27 @@ export default memo(function ChatView({
           }
           const id = streamingMsgId;
           const text = streamingText;
+          // Streaming message is always the last — update in-place or append
           setMessages(prev => {
-            const existing = prev.findIndex(m => m.id === id);
-            const msg: ChatMessage = { id, role: "assistant", text, streaming: true, timestamp: Date.now() };
-            if (existing >= 0) {
+            const last = prev[prev.length - 1];
+            if (last?.id === id) {
               const next = [...prev];
-              next[existing] = msg;
+              next[next.length - 1] = { ...last, text, streaming: true } as ChatMessage;
               return next;
             }
-            return [...prev, msg];
+            return [...prev, { id, role: "assistant", text, streaming: true, timestamp: Date.now() }];
           });
         } else {
           // Complete message — finalize streaming or add new
           if (streamingMsgId) {
-            const id = streamingMsgId;
-            const text = streamingText;
-            streamingMsgId = null;
-            streamingText = "";
-            setMessages(prev => prev.map(m => m.id === id ? { ...m, text, streaming: false } as ChatMessage : m));
+            finalizeStreaming();
           } else {
             setMessages(prev => [...prev, { id: nextId(), role: "assistant", text: event.text, streaming: false, timestamp: Date.now() }]);
           }
         }
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "toolUse") {
-        // Finalize any streaming assistant text — capture text before resetting
-        if (streamingMsgId) {
-          const id = streamingMsgId;
-          const finalText = streamingText;
-          streamingMsgId = null;
-          streamingText = "";
-          setMessages(prev => prev.map(m => m.id === id ? { ...m, text: finalText, streaming: false } as ChatMessage : m));
-        }
+        finalizeStreaming();
         setMessages(prev => [...prev, { id: nextId(), role: "tool", tool: event.tool, input: event.input, timestamp: Date.now() }]);
         const inp = event.input as Record<string, string> | undefined;
         const detail = event.tool === "Bash" ? (inp?.command || "").slice(0, 40)
@@ -166,19 +167,15 @@ export default memo(function ChatView({
             : "";
         onTaglineChangeRef.current?.(tabIdRef.current, detail ? `${event.tool}: ${detail}` : event.tool);
       } else if (event.type === "toolResult") {
-        // Update the most recent matching tool message with output
+        // Update the most recent matching tool message with output (scan backward without copy)
         setMessages(prev => {
-          const idx = [...prev].reverse().findIndex(m =>
-            m.role === "tool" && m.tool === event.tool && m.output === undefined
-          );
-          if (idx >= 0) {
-            const realIdx = prev.length - 1 - idx;
-            const next = [...prev];
-            const m = next[realIdx];
-            if (m.role === "tool") {
-              next[realIdx] = { ...m, output: event.output, success: event.success };
+          for (let i = prev.length - 1; i >= 0; i--) {
+            const m = prev[i];
+            if (m.role === "tool" && m.tool === event.tool && m.output === undefined) {
+              const next = [...prev];
+              next[i] = { ...m, output: event.output, success: event.success };
+              return next;
             }
-            return next;
           }
           return prev;
         });
@@ -190,9 +187,11 @@ export default memo(function ChatView({
         setInputState("processing"); // Block input during permission
         onTaglineChangeRef.current?.(tabIdRef.current, `Permission: ${event.tool}`);
       } else if (event.type === "inputRequired") {
+        finalizeStreaming();
         setInputState("awaiting_input");
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "thinking") {
+        finalizeStreaming();
         // Show or update thinking message
         setMessages(prev => {
           const last = prev[prev.length - 1];
@@ -205,6 +204,7 @@ export default memo(function ChatView({
         });
         onTaglineChangeRef.current?.(tabIdRef.current, "Thinking...");
       } else if (event.type === "result") {
+        finalizeStreaming();
         // Accumulate session token count for context bar
         setSessionTokens(prev => prev + (event.inputTokens || 0) + (event.outputTokens || 0));
         if (event.contextWindow > 0) setContextWindow(event.contextWindow);
@@ -256,10 +256,10 @@ export default memo(function ChatView({
     };
 
     const launchPromise = resumeSessionId
-      ? resumeAgent(tabId, resumeSessionId, projectPath, modelId, effortId, handleAgentEvent)
+      ? resumeAgent(tabId, resumeSessionId, projectPath, modelId, effortId, plugins, handleAgentEvent)
       : forkSessionId
-        ? forkAgent(tabId, forkSessionId, projectPath, modelId, effortId, handleAgentEvent)
-        : spawnAgent(tabId, projectPath, modelId, effortId, sanitizeInput(systemPrompt), skipPerms, handleAgentEvent);
+        ? forkAgent(tabId, forkSessionId, projectPath, modelId, effortId, plugins, handleAgentEvent)
+        : spawnAgent(tabId, projectPath, modelId, effortId, sanitizeInput(systemPrompt), skipPerms, plugins, handleAgentEvent);
 
     launchPromise
       .then(() => {
@@ -387,6 +387,18 @@ export default memo(function ChatView({
     }
   };
 
+  // ── Stable callbacks for ChatInput memo ─────────────────────────
+  const handleDroppedFilesConsumed = useCallback(() => setDroppedFiles([]), []);
+
+  // ── Derived state (O(1) in render) ────────────────────────────
+  const hasUnresolvedPermission = useMemo(
+    () => messages.some(m => m.role === "permission" && !m.resolved),
+    [messages],
+  );
+
+  // ── Deferred messages for sidebar (skip re-renders during streaming)
+  const deferredMessages = useDeferredValue(messages);
+
   // ── Drag & Drop ─────────────────────────────────────────────────
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -415,7 +427,6 @@ export default memo(function ChatView({
   return (
     <div
       className="chat-view"
-      style={{ fontFamily: `var(--font-chat)`, fontSize: `var(--text-chat)` }}
       onKeyDown={handleKeyDown}
       tabIndex={0}
       onDragEnter={handleDragEnter}
@@ -425,7 +436,7 @@ export default memo(function ChatView({
     >
       <div className="chat-main-row">
       <div className="chat-main-col">
-      <div ref={chatContainerRef} className="chat-messages">
+      <div ref={chatContainerRef} className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">
       <div className="chat-messages-inner">
         {messages.length === 0 && inputState === "idle" && (
           <div className="chat-msg chat-msg--status">Starting agent...</div>
@@ -456,7 +467,7 @@ export default memo(function ChatView({
               return null;
           }
         })}
-        {/* Terminal mode: input inside scrollable area */}
+        {/* Terminal mode: input inside scrollable area (both awaiting and processing) */}
         {inputStyle === "terminal" && inputState === "awaiting_input" && (
           <ChatInput
             onSubmit={handleSubmit}
@@ -468,7 +479,21 @@ export default memo(function ChatView({
             sdkCommands={sdkCommands}
             sdkAgents={sdkAgents}
             droppedFiles={droppedFiles}
-            onDroppedFilesConsumed={() => setDroppedFiles([])}
+            onDroppedFilesConsumed={handleDroppedFilesConsumed}
+          />
+        )}
+        {inputStyle === "terminal" && inputState === "processing" && !hasUnresolvedPermission && (
+          <ChatInput
+            onSubmit={handleSubmit}
+            onCommand={handleCommand}
+            disabled={true}
+            processing={true}
+            isActive={isActive}
+            inputStyle="terminal"
+            sdkCommands={sdkCommands}
+            sdkAgents={sdkAgents}
+            droppedFiles={droppedFiles}
+            onDroppedFilesConsumed={handleDroppedFilesConsumed}
           />
         )}
         <div ref={messagesEndRef} />
@@ -489,14 +514,14 @@ export default memo(function ChatView({
           onDroppedFilesConsumed={() => setDroppedFiles([])}
         />
       )}
-      {inputState === "processing" && !messages.some(m => m.role === "permission" && !m.resolved) && (
+      {inputStyle !== "terminal" && inputState === "processing" && !hasUnresolvedPermission && (
         <ChatInput
           onSubmit={handleSubmit}
           onCommand={handleCommand}
           disabled={true}
           processing={true}
           isActive={isActive}
-          inputStyle={inputStyle}
+          inputStyle="chat"
           sdkCommands={sdkCommands}
           sdkAgents={sdkAgents}
           droppedFiles={droppedFiles}
@@ -514,11 +539,28 @@ export default memo(function ChatView({
       )}
       </div>{/* end chat-main-col */}
       {sidebarOpen && (
-        <RightSidebar messages={messages} onScrollToMessage={handleScrollToMessage} />
+        <RightSidebar messages={deferredMessages} onScrollToMessage={handleScrollToMessage} />
       )}
       </div>{/* end chat-main-row */}
-      {(rateLimitUtil > 0 || sessionTokens > 0) && (
-        <div className="chat-usage-bars">
+      <div className="chat-bottom-bar">
+        <div className="chat-bottom-bar-info">
+          <span className="chat-bottom-bar-model">{MODELS[modelIdx]?.display || "?"}</span>
+          <span className="chat-bottom-bar-sep">|</span>
+          <span className={`chat-bottom-bar-effort ${EFFORTS[effortIdx] || "high"}`}>{EFFORTS[effortIdx] || "high"}</span>
+        </div>
+        <div className="chat-bottom-bar-meters">
+          {sessionTokens > 0 && contextWindow > 0 && (
+            <div className="chat-usage-bar" title={`Context: ${(sessionTokens / 1000).toFixed(0)}k / ${(contextWindow / 1000).toFixed(0)}k tokens`}>
+              <span className="chat-usage-bar-label">context</span>
+              <div className="chat-usage-bar-track">
+                <div
+                  className={`chat-usage-bar-fill${sessionTokens / contextWindow > 0.8 ? " warn" : ""}`}
+                  style={{ width: `${Math.min((sessionTokens / contextWindow) * 100, 100)}%` }}
+                />
+              </div>
+              <span className="chat-usage-bar-pct">{Math.round((sessionTokens / contextWindow) * 100)}%</span>
+            </div>
+          )}
           {rateLimitUtil > 0 && (
             <div className="chat-usage-bar" title={`Rate limit: ${Math.round(rateLimitUtil * 100)}%`}>
               <span className="chat-usage-bar-label">quota</span>
@@ -531,20 +573,26 @@ export default memo(function ChatView({
               <span className="chat-usage-bar-pct">{Math.round(rateLimitUtil * 100)}%</span>
             </div>
           )}
-          {sessionTokens > 0 && contextWindow > 0 && (
-            <div className="chat-usage-bar" title={`Context: ${(sessionTokens / 1000).toFixed(0)}k / ${(contextWindow / 1000).toFixed(0)}k tokens`}>
-              <span className="chat-usage-bar-label">context</span>
-              <div className="chat-usage-bar-track">
-                <div
-                  className={`chat-usage-bar-fill${sessionTokens / contextWindow > 0.8 ? " warn" : ""}`}
-                  style={{ width: `${Math.min((sessionTokens / contextWindow) * 100, 100)}%` }}
-                />
-              </div>
-              <span className="chat-usage-bar-pct">{(sessionTokens / 1000).toFixed(0)}k</span>
-            </div>
-          )}
         </div>
-      )}
+        {inputStyle === "terminal" && (
+          <button
+            className="chat-bottom-bar-attach"
+            title="Attach files"
+            aria-label="Attach files"
+            onClick={async () => {
+              try {
+                const result = await open({ multiple: true });
+                if (result) {
+                  const paths = Array.isArray(result) ? result : [result];
+                  setDroppedFiles(paths);
+                }
+              } catch { /* cancelled */ }
+            }}
+          >
+            +
+          </button>
+        )}
+      </div>
       {isDragging && (
         <div className="chat-drop-overlay">
           <span className="chat-drop-overlay-text">Drop files here</span>

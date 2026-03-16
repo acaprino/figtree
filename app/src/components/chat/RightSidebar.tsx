@@ -17,10 +17,10 @@ export default memo(function RightSidebar({ messages, onScrollToMessage }: Props
   const [activeTab, setActiveTab] = useState<SidebarTab>("bookmarks");
 
   const tabs: { id: SidebarTab; icon: string; title: string }[] = [
-    { id: "bookmarks", icon: "\uD83D\uDCD1", title: "Bookmarks" },
-    { id: "minimap", icon: "\uD83D\uDDFA", title: "Minimap" },
-    { id: "todos", icon: "\u2611", title: "Todos" },
-    { id: "thinking", icon: "\uD83E\uDDE0", title: "Thinking" },
+    { id: "bookmarks", icon: "bm", title: "Bookmarks" },
+    { id: "minimap", icon: "mm", title: "Minimap" },
+    { id: "todos", icon: "td", title: "Todos" },
+    { id: "thinking", icon: "th", title: "Thinking" },
   ];
 
   return (

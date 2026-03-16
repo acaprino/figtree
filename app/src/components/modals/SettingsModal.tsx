@@ -152,6 +152,7 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
         {/* Font */}
         <div className="settings-section">
           <h3 className="settings-section__title">Terminal Font</h3>
+          <p className="modal-hint" style={{ marginTop: 0, marginBottom: "var(--space-2)" }}>Used in terminal/xterm sessions</p>
           <div className="font-settings-row">
             <div className="modal-field">
               <label htmlFor="font-family">Family</label>
@@ -191,6 +192,7 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
         {/* Chat Font */}
         <div className="settings-section">
           <h3 className="settings-section__title">Chat Font</h3>
+          <p className="modal-hint" style={{ marginTop: 0, marginBottom: "var(--space-2)" }}>Used in chat-style message views</p>
           <div className="font-settings-row">
             <div className="modal-field">
               <label htmlFor="chat-font-family">Family</label>
@@ -286,7 +288,7 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
             <span>Input style</span>
             <SegmentedControl
               options={INPUT_STYLE_OPTIONS}
-              value={settings.input_style ?? "chat"}
+              value={settings.input_style ?? "terminal"}
               onChange={handleInputStyleChange}
               title="Input style"
             />

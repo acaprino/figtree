@@ -101,7 +101,7 @@ export default memo(function CommandMenu({ filter, sdkCommands = [], onSelect, o
   const sdkOffset = filteredLocal.length;
 
   return (
-    <div className="command-menu" ref={listRef} style={{ maxHeight: maxH }}>
+    <div className="command-menu" ref={listRef} style={{ maxHeight: maxH }} role="listbox" aria-label="Commands">
       {filteredLocal.length > 0 && (
         <>
           <div className="command-section-header">
@@ -113,6 +113,8 @@ export default memo(function CommandMenu({ filter, sdkCommands = [], onSelect, o
             <div
               key={cmd.name}
               className={`command-item${i === selectedIdx ? " selected" : ""}`}
+              role="option"
+              aria-selected={i === selectedIdx}
               onClick={() => onSelect(cmd)}
               onMouseEnter={() => setSelectedIdx(i)}
             >
@@ -136,6 +138,8 @@ export default memo(function CommandMenu({ filter, sdkCommands = [], onSelect, o
               <div
                 key={cmd.name}
                 className={`command-item${idx === selectedIdx ? " selected" : ""}`}
+                role="option"
+                aria-selected={idx === selectedIdx}
                 onClick={() => onSelect(cmd)}
                 onMouseEnter={() => setSelectedIdx(idx)}
               >

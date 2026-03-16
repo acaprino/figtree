@@ -8,6 +8,7 @@ export async function spawnAgent(
   effort: string,
   systemPrompt: string,
   skipPerms: boolean,
+  plugins: string[],
   onEvent: (event: AgentEvent) => void,
 ): Promise<Channel<AgentEvent>> {
   const channel = new Channel<AgentEvent>();
@@ -20,6 +21,7 @@ export async function spawnAgent(
     effort,
     systemPrompt,
     skipPerms,
+    plugins,
     onEvent: channel,
   });
 
@@ -36,6 +38,7 @@ export async function resumeAgent(
   projectPath: string,
   model: string,
   effort: string,
+  plugins: string[],
   onEvent: (event: AgentEvent) => void,
 ): Promise<Channel<AgentEvent>> {
   const channel = new Channel<AgentEvent>();
@@ -47,6 +50,7 @@ export async function resumeAgent(
     projectPath,
     model,
     effort,
+    plugins,
     onEvent: channel,
   });
 
@@ -59,6 +63,7 @@ export async function forkAgent(
   projectPath: string,
   model: string,
   effort: string,
+  plugins: string[],
   onEvent: (event: AgentEvent) => void,
 ): Promise<Channel<AgentEvent>> {
   const channel = new Channel<AgentEvent>();
@@ -70,6 +75,7 @@ export async function forkAgent(
     projectPath,
     model,
     effort,
+    plugins,
     onEvent: channel,
   });
 

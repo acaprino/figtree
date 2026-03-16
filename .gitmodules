@@ -1,0 +1,3 @@
+[submodule "app/src-tauri/data/marketplace"]
+	path = app/src-tauri/data/marketplace
+	url = https://github.com/acaprino/anvil-toolset.git

@@ -22,7 +22,7 @@ function log(...args) {
 // ── Command handlers ────────────────────────────────────────────────
 
 async function handleCreate(cmd) {
-  const { tabId, cwd, model, effort, systemPrompt, skipPerms, allowedTools } = cmd;
+  const { tabId, cwd, model, effort, systemPrompt, skipPerms, allowedTools, plugins } = cmd;
 
   if (sessions.has(tabId)) {
     // Kill existing session (React 18 StrictMode sends create→create→kill)
@@ -120,6 +120,10 @@ async function handleCreate(cmd) {
 
   if (allowedTools) {
     options.allowedTools = allowedTools;
+  }
+
+  if (plugins && plugins.length > 0) {
+    options.plugins = plugins.map(p => ({ type: 'local', path: p }));
   }
 
   // Resume or fork if specified
