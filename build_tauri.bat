@@ -79,6 +79,28 @@ if exist "%RELEASE_DIR%\data" (
     echo   - data\
 )
 
+:: Copy sidecar (Agent SDK bridge)
+set "SIDECAR_SRC=%~dp0sidecar"
+set "SIDECAR_DST=%DIST_DIR%\sidecar"
+if exist "%SIDECAR_SRC%\sidecar.js" (
+    mkdir "%SIDECAR_DST%" 2>nul
+    copy /Y "%SIDECAR_SRC%\sidecar.js" "%SIDECAR_DST%\" >nul
+    copy /Y "%SIDECAR_SRC%\package.json" "%SIDECAR_DST%\" >nul
+    copy /Y "%SIDECAR_SRC%\package-lock.json" "%SIDECAR_DST%\" >nul
+    echo   - sidecar\
+    echo     Installing sidecar dependencies...
+    pushd "%SIDECAR_DST%"
+    call npm install --production >nul 2>&1
+    if %ERRORLEVEL% neq 0 (
+        echo WARNING: sidecar npm install failed
+    ) else (
+        echo     sidecar dependencies installed.
+    )
+    popd
+) else (
+    echo WARNING: sidecar\sidecar.js not found — agent SDK will not work
+)
+
 :: Copy WebView2Loader if present
 if exist "%RELEASE_DIR%\WebView2Loader.dll" (
     copy /Y "%RELEASE_DIR%\WebView2Loader.dll" "%DIST_DIR%\" >nul
