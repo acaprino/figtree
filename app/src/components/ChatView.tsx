@@ -227,7 +227,9 @@ export default memo(function ChatView({
 
     launchPromise
       .then(() => {
-        if (cancelled) { killAgent(tabId).catch(() => {}); return; }
+        // Don't kill here if cancelled — the deferred kill in cleanup handles it.
+        // Killing here would race with the re-mount's spawn in StrictMode.
+        if (cancelled) return;
         agentStartedRef.current = true;
         onSessionCreatedRef.current(tabIdRef.current, tabId);
       })
