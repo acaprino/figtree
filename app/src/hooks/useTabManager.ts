@@ -9,7 +9,7 @@ interface SavedTab {
   projectName: string;
   modelIdx: number;
   effortIdx: number;
-  skipPerms: boolean;
+  permModeIdx: number;
   temporary: boolean;
 }
 
@@ -30,7 +30,7 @@ function createRestoredTab(saved: SavedTab): Tab {
     projectName: saved.projectName,
     modelIdx: saved.modelIdx,
     effortIdx: saved.effortIdx,
-    skipPerms: saved.skipPerms,
+    permModeIdx: saved.permModeIdx,
     temporary: saved.temporary || false,
     hasNewOutput: false,
     exitCode: null,
@@ -56,7 +56,7 @@ export function useTabManager() {
             projectName: typeof s.projectName === "string" ? s.projectName : "Terminal",
             modelIdx: typeof s.modelIdx === "number" ? s.modelIdx : 0,
             effortIdx: typeof s.effortIdx === "number" ? s.effortIdx : 0,
-            skipPerms: s.skipPerms === true,
+            permModeIdx: typeof s.permModeIdx === "number" ? s.permModeIdx : (s.skipPerms === true ? 2 : 0),
             temporary: s.temporary === true,
           }));
         if (restoredTabs.length > 0) {
@@ -76,7 +76,7 @@ export function useTabManager() {
   // recalculating on volatile changes like hasNewOutput or exitCode.
   const saveableKey = tabs
     .filter((t) => t.type === "agent" && t.projectPath)
-    .map((t) => `${t.projectPath}|${t.projectName ?? "Terminal"}|${t.modelIdx ?? 0}|${t.effortIdx ?? 0}|${t.skipPerms ?? false}|${t.temporary ?? false}`)
+    .map((t) => `${t.projectPath}|${t.projectName ?? "Terminal"}|${t.modelIdx ?? 0}|${t.effortIdx ?? 0}|${t.permModeIdx ?? 0}|${t.temporary ?? false}`)
     .join("\n");
 
   const saveableState = useMemo(() =>
@@ -88,7 +88,7 @@ export function useTabManager() {
           projectName: t.projectName ?? "Terminal",
           modelIdx: t.modelIdx ?? 0,
           effortIdx: t.effortIdx ?? 0,
-          skipPerms: t.skipPerms ?? false,
+          permModeIdx: t.permModeIdx ?? 0,
           temporary: t.temporary ?? false,
         })),
     ),

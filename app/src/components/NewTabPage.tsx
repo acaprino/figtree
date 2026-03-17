@@ -8,7 +8,7 @@ import CreateProjectModal from "./modals/CreateProjectModal";
 import LabelProjectModal from "./modals/LabelProjectModal";
 import QuickLaunchModal from "./modals/QuickLaunchModal";
 import SettingsModal from "./modals/SettingsModal";
-import { ProjectInfo, MODELS, EFFORTS, SORT_ORDERS } from "../types";
+import { ProjectInfo, MODELS, EFFORTS, SORT_ORDERS, PERM_MODES } from "../types";
 import "./NewTabPage.css";
 
 interface NewTabPageProps {
@@ -19,7 +19,7 @@ interface NewTabPageProps {
     projectName: string,
     modelIdx: number,
     effortIdx: number,
-    skipPerms: boolean,
+    permModeIdx: number,
     autocompact: boolean,
     temporary?: boolean,
   ) => void;
@@ -89,7 +89,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, onOpenSystemPrompts, isAc
         project.label ?? project.name,
         currentSettings.model_idx,
         currentSettings.effort_idx,
-        currentSettings.skip_perms,
+        currentSettings.perm_mode_idx,
         currentSettings.autocompact,
       );
     },
@@ -161,7 +161,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, onOpenSystemPrompts, isAc
         case "Tab":
           e.preventDefault();
           updateSettingsRef.current({
-            model_idx: (currentSettings.model_idx + 1) % MODELS.length,
+            perm_mode_idx: (currentSettings.perm_mode_idx + 1) % PERM_MODES.length,
           });
           break;
         case "F2":
@@ -178,7 +178,9 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, onOpenSystemPrompts, isAc
           break;
         case "F4":
           e.preventDefault();
-          updateSettingsRef.current({ skip_perms: !currentSettings.skip_perms });
+          updateSettingsRef.current({
+            model_idx: (currentSettings.model_idx + 1) % MODELS.length,
+          });
           break;
         case "F5":
           e.preventDefault();
@@ -312,7 +314,7 @@ function NewTabPage({ tabId, onLaunch, onRequestClose, onOpenSystemPrompts, isAc
             }
             const name = dirPath.split(/[\\/]/).pop() ?? "Terminal";
             setActiveModal(null);
-            onLaunch(tabId, dirPath, name, settings.model_idx, settings.effort_idx, settings.skip_perms, settings.autocompact, !addToProjects);
+            onLaunch(tabId, dirPath, name, settings.model_idx, settings.effort_idx, settings.perm_mode_idx, settings.autocompact, !addToProjects);
           }}
         />
       )}

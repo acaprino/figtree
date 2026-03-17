@@ -27,10 +27,10 @@ const SECTIONS = [
     keys: [
       ["Arrows", "Navigate"],
       ["Enter", "Launch project"],
-      ["Tab", "Cycle model"],
+      ["Tab", "Cycle perm mode"],
       ["F2", "Cycle effort"],
       ["F3", "Cycle sort"],
-      ["F4", "Toggle skip-perms"],
+      ["F4", "Cycle model"],
       ["F5", "New project"],
       ["F6", "Open in Explorer"],
       ["F8", "Label project"],

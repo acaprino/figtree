@@ -171,14 +171,14 @@ function AppContent() {
   }, [addTabAndResetFilter, toggleAboutTab, toggleUsageTab, toggleSystemPromptTab, toggleSessionsTab, updateSettings, closeTab, activeTabId, nextTab, prevTab]);
 
   const handleLaunch = useCallback(
-    (tabId: string, projectPath: string, projectName: string, modelIdx: number, effortIdx: number, skipPerms: boolean, autocompact: boolean, temporary?: boolean) => {
+    (tabId: string, projectPath: string, projectName: string, modelIdx: number, effortIdx: number, permModeIdx: number, autocompact: boolean, temporary?: boolean) => {
       updateTab(tabId, {
         type: "agent",
         projectPath,
         projectName,
         modelIdx,
         effortIdx,
-        skipPerms,
+        permModeIdx,
         autocompact,
         temporary: temporary || false,
       });
@@ -243,7 +243,7 @@ function AppContent() {
     const field = mode === "resume" ? "resumeSessionId" : "forkSessionId";
     const payload = {
       type: "agent" as const, projectPath: cwd, projectName, modelIdx, effortIdx,
-      skipPerms: false, autocompact, [field]: sessionId,
+      permModeIdx: 0, autocompact, [field]: sessionId,
     };
 
     if (inNewTab || activeTab.type !== "agent") {
@@ -417,7 +417,7 @@ function AppContent() {
                     projectPath={tab.projectPath!}
                     modelIdx={tab.modelIdx ?? 0}
                     effortIdx={tab.effortIdx ?? 0}
-                    skipPerms={tab.skipPerms ?? false}
+                    permModeIdx={tab.permModeIdx ?? 0}
                     systemPrompt={systemPrompt}
                     isActive={isActive}
                     onSessionCreated={handleSessionCreated}

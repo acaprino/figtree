@@ -37,10 +37,10 @@ const SHORTCUTS_NAV = `  Ctrl+T        New tab
   Ctrl+Tab      Next / prev tab
   Enter         Launch project`;
 
-const SHORTCUTS_SETTINGS = `  Tab           Cycle model
+const SHORTCUTS_SETTINGS = `  Tab           Cycle perm mode
   F2            Cycle effort
   F3            Cycle sort
-  F4            Toggle skip-perms`;
+  F4            Cycle model`;
 
 const SHORTCUTS_ACTIONS = `  F5            Create project
   F6            Open in Explorer

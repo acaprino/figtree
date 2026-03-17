@@ -4,7 +4,7 @@ use std::os::windows::io::AsRawHandle;
 use std::os::windows::process::CommandExt;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use windows::Win32::Foundation::HANDLE;
@@ -143,7 +143,7 @@ struct SidecarEvent {
     summary: String,
 }
 
-type ChannelMap = Arc<Mutex<HashMap<String, Channel<AgentEvent>>>>;
+type ChannelMap = Arc<RwLock<HashMap<String, Channel<AgentEvent>>>>;
 type OneshotMap = Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<serde_json::Value>>>>;
 
 pub struct SidecarManager {
@@ -170,7 +170,7 @@ impl SidecarManager {
     pub fn new() -> Self {
         let manager = Self {
             stdin: Mutex::new(None),
-            channels: Arc::new(Mutex::new(HashMap::new())),
+            channels: Arc::new(RwLock::new(HashMap::new())),
             oneshots: Arc::new(Mutex::new(HashMap::new())),
             available: Arc::new(AtomicBool::new(false)),
             _process: Mutex::new(None),
@@ -427,15 +427,20 @@ impl SidecarManager {
                         }
                     };
 
-                    // Send to the matching channel (single lock for both send and exit cleanup)
+                    // Send to the matching channel.
+                    // Hot path (streaming): read-lock only — multiple tabs don't block each other.
+                    // Cold path (exit): upgrade to write-lock to remove the channel.
                     let is_exit = matches!(&agent_event, AgentEvent::Exit { .. });
-                    {
-                        let mut guard = channels.lock().unwrap_or_else(|e| e.into_inner());
+                    if is_exit {
+                        let mut guard = channels.write().unwrap_or_else(|e| e.into_inner());
                         if let Some(channel) = guard.get(tab_id) {
                             let _ = channel.send(agent_event);
                         }
-                        if is_exit {
-                            guard.remove(tab_id);
+                        guard.remove(tab_id);
+                    } else {
+                        let guard = channels.read().unwrap_or_else(|e| e.into_inner());
+                        if let Some(channel) = guard.get(tab_id) {
+                            let _ = channel.send(agent_event);
                         }
                     }
                 }
@@ -481,12 +486,12 @@ impl SidecarManager {
 
     /// Register a channel for a tab, so events get routed to it.
     pub fn register_channel(&self, tab_id: &str, channel: Channel<AgentEvent>) {
-        self.channels.lock().unwrap_or_else(|e| e.into_inner()).insert(tab_id.to_string(), channel);
+        self.channels.write().unwrap_or_else(|e| e.into_inner()).insert(tab_id.to_string(), channel);
     }
 
     /// Remove a tab's channel.
     pub fn unregister_channel(&self, tab_id: &str) {
-        self.channels.lock().unwrap_or_else(|e| e.into_inner()).remove(tab_id);
+        self.channels.write().unwrap_or_else(|e| e.into_inner()).remove(tab_id);
     }
 
     /// Register a oneshot for receiving a single response (list_sessions, get_messages).

@@ -2,7 +2,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useReducer, us
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand } from "../hooks/useAgentSession";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import { MODELS, EFFORTS } from "../types";
+import { MODELS, EFFORTS, PERM_MODES } from "../types";
 import type { AgentEvent, AgentTask, Attachment, ChatMessage, PermissionSuggestion, SlashCommand, AgentInfoSDK } from "../types";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -143,7 +143,7 @@ interface ChatViewProps {
   projectPath: string;
   modelIdx: number;
   effortIdx: number;
-  skipPerms: boolean;
+  permModeIdx: number;
   systemPrompt: string;
   isActive: boolean;
   onSessionCreated: (tabId: string, sessionId: string) => void;
@@ -159,7 +159,7 @@ interface ChatViewProps {
 }
 
 export default memo(function ChatView({
-  tabId, projectPath, modelIdx, effortIdx, skipPerms, systemPrompt,
+  tabId, projectPath, modelIdx, effortIdx, permModeIdx, systemPrompt,
   isActive,
   onSessionCreated, onNewOutput, onExit, onError, onTaglineChange,
   inputStyle = "terminal", hideThinking, plugins = [], resumeSessionId, forkSessionId,
@@ -196,6 +196,12 @@ export default memo(function ChatView({
   const [streamingTick, setStreamingTick] = useState(0);
   const rafIdRef = useRef(0);
 
+  // Thinking text — same ref+rAF pattern as streaming to avoid O(n) array copy per delta.
+  const thinkingTextRef = useRef("");
+  const thinkingIdRef = useRef<string | null>(null);
+  const thinkingRafRef = useRef(0);
+  const [thinkingTick, setThinkingTick] = useState(0);
+
   // Callback refs to avoid stale closures in useEffect
   const onSessionCreatedRef = useRef(onSessionCreated);
   onSessionCreatedRef.current = onSessionCreated;
@@ -219,7 +225,7 @@ export default memo(function ChatView({
     if (nearBottom) {
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
     }
-  }, [messages, streamingTick]);
+  }, [messages, streamingTick, thinkingTick]);
 
   // Track scroll position for terminal mode floating mini-input
   useEffect(() => {
@@ -256,6 +262,7 @@ export default memo(function ChatView({
 
     const modelId = MODELS[modelIdx]?.id || "";
     const effortId = EFFORTS[effortIdx] || "high";
+    const permMode = PERM_MODES[permModeIdx]?.sdk || "plan";
 
     // Extracted helper: finalize any pending streaming message.
     // Streaming text lives in component-level refs to avoid O(n) array copies per chunk.
@@ -268,6 +275,18 @@ export default memo(function ChatView({
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
       setMessages(prev => [...prev, { id, role: "assistant", text, streaming: false, timestamp: Date.now() }]);
+    };
+
+    // Finalize thinking: commit accumulated thinking text into the messages array.
+    const finalizeThinking = () => {
+      if (!thinkingIdRef.current) return;
+      const id = thinkingIdRef.current;
+      const text = thinkingTextRef.current;
+      thinkingIdRef.current = null;
+      thinkingTextRef.current = "";
+      cancelAnimationFrame(thinkingRafRef.current);
+      thinkingRafRef.current = 0;
+      setMessages(prev => [...prev, { id, role: "thinking", text, timestamp: Date.now() }]);
     };
 
     const handleAgentEvent = (event: AgentEvent) => {
@@ -300,6 +319,7 @@ export default memo(function ChatView({
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "toolUse") {
         finalizeStreaming();
+        finalizeThinking();
         setMessages(prev => [...prev, { id: nextId(), role: "tool", tool: event.tool, input: event.input, timestamp: Date.now() }]);
         const inp = event.input as Record<string, string> | undefined;
         const detail = event.tool === "Bash" ? (inp?.command || "").slice(0, 40)
@@ -329,6 +349,7 @@ export default memo(function ChatView({
         onTaglineChangeRef.current?.(tabIdRef.current, `Permission: ${event.tool}`);
       } else if (event.type === "ask") {
         finalizeStreaming();
+        finalizeThinking();
         setMessages(prev => [...prev, {
           id: nextId(), role: "ask", questions: event.questions,
           timestamp: Date.now(),
@@ -339,23 +360,28 @@ export default memo(function ChatView({
         queueMicrotask(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }));
       } else if (event.type === "inputRequired") {
         finalizeStreaming();
+        finalizeThinking();
         setInputState("awaiting_input");
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "thinking") {
         finalizeStreaming();
-        // Show or update thinking message
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last?.role === "thinking") {
-            const next = [...prev];
-            next[next.length - 1] = { ...last, text: last.text + event.text };
-            return next;
-          }
-          return [...prev, { id: nextId(), role: "thinking", text: event.text, timestamp: Date.now() }];
-        });
+        // Accumulate thinking deltas in refs — same pattern as streaming text.
+        if (!thinkingIdRef.current) {
+          thinkingIdRef.current = nextId();
+          thinkingTextRef.current = event.text;
+        } else {
+          thinkingTextRef.current += event.text;
+        }
+        if (!thinkingRafRef.current) {
+          thinkingRafRef.current = requestAnimationFrame(() => {
+            thinkingRafRef.current = 0;
+            setThinkingTick(t => t + 1);
+          });
+        }
         onTaglineChangeRef.current?.(tabIdRef.current, "Thinking...");
       } else if (event.type === "result") {
         finalizeStreaming();
+        finalizeThinking();
         // Accumulate session stats in a single dispatch (1 re-render instead of 7+)
         dispatchStats({
           type: "result",
@@ -470,7 +496,7 @@ export default memo(function ChatView({
       ? resumeAgent(tabId, resumeSessionId, projectPath, modelId, effortId, plugins, handleAgentEvent)
       : forkSessionId
         ? forkAgent(tabId, forkSessionId, projectPath, modelId, effortId, plugins, handleAgentEvent)
-        : spawnAgent(tabId, projectPath, modelId, effortId, sanitizeInput(systemPrompt), skipPerms, plugins, handleAgentEvent);
+        : spawnAgent(tabId, projectPath, modelId, effortId, sanitizeInput(systemPrompt), permMode, plugins, handleAgentEvent);
 
     launchPromise
       .then((channel) => {
@@ -504,6 +530,11 @@ export default memo(function ChatView({
       streamingTextRef.current = "";
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = 0;
+      // Clear thinking state
+      thinkingIdRef.current = null;
+      thinkingTextRef.current = "";
+      cancelAnimationFrame(thinkingRafRef.current);
+      thinkingRafRef.current = 0;
       // Clear agent task state
       cancelAnimationFrame(taskFlushRafRef.current);
       taskFlushRafRef.current = 0;
@@ -806,7 +837,7 @@ export default memo(function ChatView({
       <div className="chat-main-col">
       <div ref={chatContainerRef} className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">
       <div className="chat-messages-inner">
-        {messages.length === 0 && !streamingIdRef.current && inputState === "idle" && (
+        {messages.length === 0 && !streamingIdRef.current && !thinkingIdRef.current && inputState === "idle" && (
           <div className="chat-msg chat-msg--status">Starting agent...</div>
         )}
         {/* Virtualized message list */}
@@ -859,6 +890,12 @@ export default memo(function ChatView({
             );
           })}
         </div>
+        {/* Thinking rendered outside virtual list — avoids O(n) array copy per delta */}
+        {thinkingIdRef.current && !hideThinking && (
+          <div className="chat-msg chat-msg--thinking">
+            <ThinkingBlock text={thinkingTextRef.current} ended={false} />
+          </div>
+        )}
         {/* Streaming message rendered outside virtual list — avoids O(n) array copy per chunk */}
         {streamingIdRef.current && (
           <div className="chat-msg chat-msg--assistant">

@@ -13,7 +13,7 @@ export interface Tab {
 
   modelIdx?: number;
   effortIdx?: number;
-  skipPerms?: boolean;
+  permModeIdx?: number;
   autocompact?: boolean;
   temporary?: boolean;
   agentSessionId?: string;
@@ -46,7 +46,7 @@ export interface Settings {
   font_size: number;
   chat_font_family?: string;
   chat_font_size?: number;
-  skip_perms: boolean;
+  perm_mode_idx: number;
   autocompact: boolean;
   active_prompt_ids: string[];
   security_gate: boolean;
@@ -80,6 +80,13 @@ export const MODELS = [
 
 export const EFFORTS = ["high", "medium", "low"] as const;
 export const SORT_ORDERS = ["alpha", "last used", "most used"] as const;
+
+/** Permission modes — cycled via Tab on the project picker. */
+export const PERM_MODES = [
+  { display: "plan", sdk: "plan" },
+  { display: "accept edits", sdk: "acceptEdits" },
+  { display: "skip all", sdk: "bypassPermissions" },
+] as const;
 
 export interface ThemeColors {
   bg: string;

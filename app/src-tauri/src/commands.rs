@@ -303,7 +303,7 @@ pub fn spawn_agent(
     model: String,
     effort: String,
     system_prompt: String,
-    skip_perms: bool,
+    perm_mode: String,
     plugins: Vec<String>,
     on_event: Channel<AgentEvent>,
 ) -> Result<(), String> {
@@ -329,7 +329,7 @@ pub fn spawn_agent(
         "model": if model.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(model) },
         "effort": effort,
         "systemPrompt": if system_prompt.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(system_prompt) },
-        "skipPerms": skip_perms,
+        "permMode": perm_mode,
         "plugins": plugins,
     }))
 }

@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useEffect } from "react";
-import { Settings, MODELS, EFFORTS } from "../types";
+import { Settings, MODELS, EFFORTS, PERM_MODES } from "../types";
 import SegmentedControl from "./SegmentedControl";
 import "./SessionConfig.css";
 
@@ -10,15 +10,12 @@ interface SessionConfigProps {
 
 const MODEL_OPTIONS = MODELS.map((m) => ({ label: m.display, value: m.display }));
 const EFFORT_OPTIONS = EFFORTS.map((e) => ({ label: e, value: e }));
-const PERMS_OPTIONS = [
-  { label: "safe", value: "safe" },
-  { label: "SKIP", value: "skip" },
-] as const;
+const PERMS_OPTIONS = PERM_MODES.map((m) => ({ label: m.display, value: m.display }));
 
 export default memo(function SessionConfig({ settings, onUpdate }: SessionConfigProps) {
   const currentModel = MODELS[settings.model_idx]?.display ?? MODELS[0].display;
   const currentEffort = EFFORTS[settings.effort_idx] ?? EFFORTS[0];
-  const permsValue = settings.skip_perms ? "skip" : "safe";
+  const permsValue = PERM_MODES[settings.perm_mode_idx]?.display ?? PERM_MODES[0].display;
 
   const handleModelChange = useCallback((idx: number) => {
     onUpdate({ model_idx: idx });
@@ -29,7 +26,7 @@ export default memo(function SessionConfig({ settings, onUpdate }: SessionConfig
   }, [onUpdate]);
 
   const handlePermsChange = useCallback((idx: number) => {
-    onUpdate({ skip_perms: idx === 1 });
+    onUpdate({ perm_mode_idx: idx });
   }, [onUpdate]);
 
   const settingsRef = useRef(settings);
@@ -45,7 +42,7 @@ export default memo(function SessionConfig({ settings, onUpdate }: SessionConfig
         options={MODEL_OPTIONS}
         value={currentModel}
         onChange={handleModelChange}
-        title="Model (Tab)"
+        title="Model (F4)"
       />
       <SegmentedControl
         options={EFFORT_OPTIONS}
@@ -58,7 +55,7 @@ export default memo(function SessionConfig({ settings, onUpdate }: SessionConfig
         value={permsValue}
         onChange={handlePermsChange}
         variant="perms"
-        title="Permissions (F4)"
+        title="Mode (Tab)"
       />
       <button
         className={`session-config__toggle ${settings.autocompact ? "active" : ""}`}

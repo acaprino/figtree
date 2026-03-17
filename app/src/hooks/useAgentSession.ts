@@ -7,7 +7,7 @@ export async function spawnAgent(
   model: string,
   effort: string,
   systemPrompt: string,
-  skipPerms: boolean,
+  permMode: string,
   plugins: string[],
   onEvent: (event: AgentEvent) => void,
 ): Promise<Channel<AgentEvent>> {
@@ -20,7 +20,7 @@ export async function spawnAgent(
     model,
     effort,
     systemPrompt,
-    skipPerms,
+    permMode,
     plugins,
     onEvent: channel,
   });

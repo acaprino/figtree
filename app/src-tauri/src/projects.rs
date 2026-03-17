@@ -30,7 +30,7 @@ pub struct Settings {
     #[serde(default = "default_font_size")]
     pub font_size: u32,
     #[serde(default)]
-    pub skip_perms: bool,
+    pub perm_mode_idx: usize,
     #[serde(default)]
     pub autocompact: bool,
     #[serde(default)]
@@ -86,7 +86,7 @@ impl Default for Settings {
             theme_idx: 0,
             font_family: default_font_family(),
             font_size: default_font_size(),
-            skip_perms: false,
+            perm_mode_idx: 0,
             autocompact: false,
             active_prompt_ids: Vec::new(),
             security_gate: true,

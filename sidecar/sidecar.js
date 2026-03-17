@@ -14,8 +14,65 @@ const sessions = new Map();
 const PERMISSION_TIMEOUT_MS = 300_000; // 5 minutes
 const ASK_USER_TIMEOUT_MS = 600_000;   // 10 minutes — multi-step wizard needs more time
 
-// Emit a JSON-line event to stdout
+// ── Batched emit ─────────────────────────────────────────────────
+// High-frequency streaming chunks (assistant text_delta, thinking_delta) are
+// coalesced per-tab over a ~16 ms window and flushed as a single JSON-line,
+// drastically reducing serialisation + I/O overhead during streaming.
+
+const BATCH_INTERVAL_MS = 16; // ~1 frame
+
+// Per-tab accumulators: tabId → { text: string, thinking: string }
+const _batchBuf = new Map();
+let _batchTimer = null;
+
+function _flushBatch() {
+  _batchTimer = null;
+  for (const [tabId, buf] of _batchBuf) {
+    if (buf.text) {
+      process.stdout.write(JSON.stringify({ evt: "assistant", tabId, text: buf.text, streaming: true }) + "\n");
+    }
+    if (buf.thinking) {
+      process.stdout.write(JSON.stringify({ evt: "thinking", tabId, text: buf.thinking }) + "\n");
+    }
+  }
+  _batchBuf.clear();
+}
+
+/** Queue a streaming text chunk for batched emission. */
+function emitStreamingText(tabId, text) {
+  let buf = _batchBuf.get(tabId);
+  if (!buf) { buf = { text: "", thinking: "" }; _batchBuf.set(tabId, buf); }
+  buf.text += text;
+  if (!_batchTimer) _batchTimer = setTimeout(_flushBatch, BATCH_INTERVAL_MS);
+}
+
+/** Queue a thinking delta for batched emission. */
+function emitThinkingDelta(tabId, text) {
+  let buf = _batchBuf.get(tabId);
+  if (!buf) { buf = { text: "", thinking: "" }; _batchBuf.set(tabId, buf); }
+  buf.thinking += text;
+  if (!_batchTimer) _batchTimer = setTimeout(_flushBatch, BATCH_INTERVAL_MS);
+}
+
+/** Flush any pending batched chunks for a tab (call before non-streaming events). */
+function flushTab(tabId) {
+  const buf = _batchBuf.get(tabId);
+  if (buf) {
+    if (buf.text) {
+      process.stdout.write(JSON.stringify({ evt: "assistant", tabId, text: buf.text, streaming: true }) + "\n");
+    }
+    if (buf.thinking) {
+      process.stdout.write(JSON.stringify({ evt: "thinking", tabId, text: buf.thinking }) + "\n");
+    }
+    _batchBuf.delete(tabId);
+  }
+}
+
+// Emit a JSON-line event to stdout (non-batched, for control/structural events)
 function emit(evt) {
+  // Flush any pending batch for this tab before emitting a structural event,
+  // so ordering is preserved.
+  if (evt.tabId) flushTab(evt.tabId);
   process.stdout.write(JSON.stringify(evt) + "\n");
 }
 
@@ -26,7 +83,7 @@ function log(...args) {
 // ── Command handlers ────────────────────────────────────────────────
 
 async function handleCreate(cmd) {
-  const { tabId, cwd, model, effort, systemPrompt, skipPerms, allowedTools, plugins } = cmd;
+  const { tabId, cwd, model, effort, systemPrompt, permMode, skipPerms, allowedTools, plugins } = cmd;
 
   if (sessions.has(tabId)) {
     // Kill existing session (React 18 StrictMode sends create→create→kill)
@@ -80,11 +137,18 @@ async function handleCreate(cmd) {
     };
   }
 
-  if (skipPerms) {
+  // Resolve permission mode from the new permMode string or legacy skipPerms boolean
+  const resolvedPermMode = permMode || (skipPerms ? "bypassPermissions" : "default");
+
+  if (resolvedPermMode === "bypassPermissions") {
     options.permissionMode = "bypassPermissions";
     options.allowDangerouslySkipPermissions = true;
-  } else {
-    // Use canUseTool callback to route permission requests to Anvil
+  } else if (resolvedPermMode === "plan" || resolvedPermMode === "acceptEdits") {
+    options.permissionMode = resolvedPermMode;
+  }
+
+  // For all modes except bypassPermissions, route permission requests to Anvil UI
+  if (resolvedPermMode !== "bypassPermissions") {
     options.canUseTool = async (toolName, input, opts) => {
       const description = toolName === "Bash"
         ? (input.command || "").slice(0, 200)
@@ -296,10 +360,10 @@ async function consumeQuery(tabId, q, sessionRef) {
             const delta = event.delta;
             if (delta?.type === "text_delta") {
               hasStreamedText = true;
-              emit({ evt: "assistant", tabId, text: delta.text, streaming: true });
+              emitStreamingText(tabId, delta.text);
             } else if (delta?.type === "thinking_delta") {
               hasStreamedText = true;
-              emit({ evt: "thinking", tabId, text: delta.thinking || "" });
+              emitThinkingDelta(tabId, delta.thinking || "");
             }
           }
           break;
@@ -461,6 +525,9 @@ function handleSend(cmd) {
 function handleKill(cmd, silent = false) {
   const session = sessions.get(cmd.tabId);
   if (!session) return;
+
+  // Flush any batched streaming data before tearing down
+  flushTab(cmd.tabId);
 
   // Signal kill to input stream
   session._pushInput(null);
