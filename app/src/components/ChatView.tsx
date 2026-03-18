@@ -13,6 +13,7 @@ import ChatInput from "./chat/ChatInput";
 import type { Command } from "./chat/CommandMenu";
 import MessageBubble from "./chat/MessageBubble";
 import ToolCard from "./chat/ToolCard";
+import ToolGroup from "./chat/ToolGroup";
 import PermissionCard from "./chat/PermissionCard";
 import AskQuestionCard from "./chat/AskQuestionCard";
 import ThinkingBlock from "./chat/ThinkingBlock";
@@ -813,21 +814,49 @@ export default memo(function ChatView({
   // ── Deferred messages for sidebar (skip re-renders during streaming)
   const deferredMessages = useDeferredValue(messages);
 
+  // ── Group consecutive tool messages ──────────────────────────────
+  type ToolGroupItem = { role: "tool-group"; id: string; timestamp: number; tools: Extract<ChatMessage, { role: "tool" }>[] };
+  type DisplayItem = ChatMessage | ToolGroupItem;
+
+  const displayItems = useMemo((): DisplayItem[] => {
+    const result: DisplayItem[] = [];
+    let toolRun: Extract<ChatMessage, { role: "tool" }>[] = [];
+    const flush = () => {
+      if (toolRun.length === 1) result.push(toolRun[0]);
+      else if (toolRun.length > 1) result.push({ role: "tool-group", id: toolRun[0].id, timestamp: toolRun[0].timestamp, tools: toolRun });
+      toolRun = [];
+    };
+    for (const msg of messages) {
+      if (msg.role === "tool") {
+        toolRun.push(msg);
+      } else {
+        flush();
+        result.push(msg);
+      }
+    }
+    flush();
+    return result;
+  }, [messages]);
+
   // ── Virtualizer for message list ──────────────────────────────
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const displayItemsRef = useRef(displayItems);
+  displayItemsRef.current = displayItems;
 
   const virtualizer = useVirtualizer({
-    count: messages.length,
+    count: displayItems.length,
     getScrollElement: () => chatContainerRef.current,
     estimateSize: () => 60,
     overscan: 15,
-    getItemKey: (index) => messages[index].id,
+    getItemKey: (index) => displayItems[index].id,
   });
 
   // ── Scroll to message (for sidebar navigation) ─────────────────
   const handleScrollToMessage = useCallback((msgId: string) => {
-    const index = messagesRef.current.findIndex(m => m.id === msgId);
+    const index = displayItemsRef.current.findIndex(item =>
+      item.role === "tool-group" ? item.tools.some(t => t.id === msgId) : item.id === msgId
+    );
     if (index < 0) return;
     virtualizer.scrollToIndex(index, { align: "center", behavior: "smooth" });
     // Wait for virtualizer to render the target element, then highlight
@@ -894,8 +923,10 @@ export default memo(function ChatView({
         {/* Virtualized message list */}
         <div style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}>
           {virtualizer.getVirtualItems().map((virtualRow) => {
-            const msg = messages[virtualRow.index];
+            const item = displayItems[virtualRow.index];
             const content = (() => {
+              if (item.role === "tool-group") return <ToolGroup tools={item.tools} />;
+              const msg = item;
               switch (msg.role) {
                 case "user":
                   return <UserMessage text={msg.text} />;
@@ -926,16 +957,17 @@ export default memo(function ChatView({
               }
             })();
             if (content === null) return (
-              <div key={msg.id} data-index={virtualRow.index} ref={virtualizer.measureElement}
+              <div key={item.id} data-index={virtualRow.index} ref={virtualizer.measureElement}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)`, height: 0, overflow: "hidden" }} />
             );
+            const roleClass = item.role === "tool-group" ? "tool" : item.role;
             return (
               <div
-                key={msg.id}
+                key={item.id}
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
-                id={`msg-${msg.id}`}
-                className={`chat-msg chat-msg--${msg.role}${msg.id.startsWith("hist-") ? " chat-msg--history" : ""}`}
+                id={`msg-${item.id}`}
+                className={`chat-msg chat-msg--${roleClass}${item.id.startsWith("hist-") ? " chat-msg--history" : ""}`}
                 style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${virtualRow.start}px)` }}
               >
                 {content}

@@ -374,6 +374,45 @@
   border-left-color: color-mix(in srgb, var(--red) 30%, transparent);
 }
 
+/* ── ToolGroup: collapsed consecutive tools ────────────────────── */
+.tool-group {
+  margin: 2px 0;
+}
+
+.tool-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 1px 0;
+  cursor: pointer;
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  user-select: none;
+  font-family: var(--font-mono);
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.tool-group-header:hover {
+  color: var(--overlay1);
+}
+
+.tool-group-badge {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+}
+
+.tool-group-count {
+  opacity: 0.5;
+  font-size: var(--text-xs);
+}
+
+.tool-group-spacer {
+  flex: 1;
+}
+
 /* ── Tool result prefix (⎿) ─────────────────────────────────────── */
 .tool-result-prefix {
   color: var(--text-dim);
