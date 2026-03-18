@@ -6,7 +6,6 @@ export interface SessionViewProps {
   modelIdx: number;
   effortIdx: number;
   isActive: boolean;
-  inputStyle?: "chat" | "terminal";
   hideThinking?: boolean;
   controller: SessionController;
 }

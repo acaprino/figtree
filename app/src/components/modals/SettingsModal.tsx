@@ -35,10 +35,6 @@ const TAB_LAYOUT_OPTIONS = [
   { label: "Horizontal", value: "horizontal" },
   { label: "Vertical", value: "vertical" },
 ];
-const INPUT_STYLE_OPTIONS = [
-  { label: "Chat", value: "chat" },
-  { label: "Terminal", value: "terminal" },
-];
 const VIEW_STYLE_OPTIONS = [
   { label: "Terminal", value: "terminal" },
   { label: "Chat", value: "chat" },
@@ -56,9 +52,6 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
   }, [onUpdate]);
   const handleTabLayoutChange = useCallback((idx: number) => {
     onUpdate({ vertical_tabs: idx === 1 });
-  }, [onUpdate]);
-  const handleInputStyleChange = useCallback((idx: number) => {
-    onUpdate({ input_style: idx === 0 ? "chat" : "terminal" });
   }, [onUpdate]);
   const handleViewStyleChange = useCallback((idx: number) => {
     onUpdate({ view_style: idx === 0 ? "terminal" : "chat" });
@@ -304,15 +297,6 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
               value={settings.view_style ?? "terminal"}
               onChange={handleViewStyleChange}
               title="View style"
-            />
-          </div>
-          <div className="settings-toggle-row">
-            <span>Input style</span>
-            <SegmentedControl
-              options={INPUT_STYLE_OPTIONS}
-              value={settings.input_style ?? "terminal"}
-              onChange={handleInputStyleChange}
-              title="Input style"
             />
           </div>
           <div className="settings-toggle-row">

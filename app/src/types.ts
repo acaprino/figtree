@@ -57,7 +57,6 @@ export interface Settings {
   sidebar_width?: number;
   autocomplete_enabled?: boolean;
   session_panel_open?: boolean;
-  input_style?: "chat" | "terminal";
   view_style?: "terminal" | "chat";
   hide_thinking?: boolean;
   marketplace_global?: boolean;

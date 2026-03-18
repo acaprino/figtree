@@ -6,7 +6,6 @@ import TerminalView from "./TerminalView";
 
 interface AgentViewProps extends SessionControllerProps {
   viewStyle: "terminal" | "chat";
-  inputStyle?: "chat" | "terminal";
   hideThinking?: boolean;
 }
 
@@ -16,7 +15,7 @@ interface AgentViewProps extends SessionControllerProps {
  * instantiated once and passed to whichever view is active.
  */
 export default memo(function AgentView({
-  viewStyle, inputStyle, hideThinking, ...controllerProps
+  viewStyle, hideThinking, ...controllerProps
 }: AgentViewProps) {
   const controller = useSessionController(controllerProps);
 
@@ -33,5 +32,5 @@ export default memo(function AgentView({
     return <TerminalView {...viewProps} />;
   }
 
-  return <ChatView {...viewProps} inputStyle={inputStyle} />;
+  return <ChatView {...viewProps} />;
 });

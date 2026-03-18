@@ -49,7 +49,6 @@ function AppContent() {
   const chatFontFamily = settings?.chat_font_family ?? "Segoe UI";
   const chatFontSize = settings?.chat_font_size ?? 14;
   const verticalTabs = settings?.vertical_tabs ?? false;
-  const inputStyle = (settings?.input_style ?? "terminal") as "chat" | "terminal";
   const sidebarWidth = settings?.sidebar_width ?? 200;
   const appRef = useRef<HTMLDivElement>(null);
   const isResizingRef = useRef(false);
@@ -427,7 +426,6 @@ function AppContent() {
                     onError={handleError}
                     onTaglineChange={handleTaglineChange}
                     viewStyle={settings?.view_style ?? "terminal"}
-                    inputStyle={inputStyle}
                     hideThinking={settings?.hide_thinking}
                     plugins={pluginPaths}
                     resumeSessionId={tab.resumeSessionId}

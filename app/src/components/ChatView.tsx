@@ -91,7 +91,7 @@ const CopyMessageBtn = memo(function CopyMessageBtn({ text }: { text: string }) 
 export default memo(function ChatView(props: SessionViewProps) {
   const {
     modelIdx, effortIdx, isActive,
-    inputStyle = "terminal", hideThinking,
+    hideThinking,
     controller: ctrl,
   } = props;
 
@@ -104,12 +104,11 @@ export default memo(function ChatView(props: SessionViewProps) {
     messagesEndRef,
     handleSubmit, handlePermissionRespond, handleAskUserRespond,
     handleCommand, handleInterrupt,
-    droppedFiles, setDroppedFiles, handleDroppedFilesConsumed, handleAttachClick,
+    droppedFiles, setDroppedFiles, handleDroppedFilesConsumed,
   } = ctrl;
 
   const [isDragging, setIsDragging] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showMiniInput, setShowMiniInput] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages or streaming updates
@@ -122,18 +121,6 @@ export default memo(function ChatView(props: SessionViewProps) {
     }
   }, [messages, streamingTick, thinkingTick, messagesEndRef]);
 
-  // Track scroll position for terminal mode floating mini-input
-  useEffect(() => {
-    if (inputStyle !== "terminal") return;
-    const el = chatContainerRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setShowMiniInput(dist > 200);
-    };
-    el.addEventListener("scroll", handleScroll, { passive: true });
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [inputStyle]);
 
   // Auto-focus textarea when window regains focus
   useEffect(() => {
@@ -314,40 +301,11 @@ export default memo(function ChatView(props: SessionViewProps) {
             <MessageBubble text={streamingTextRef.current} streaming={true} />
           </div>
         )}
-        {/* Terminal mode: input inside scrollable area */}
-        {inputStyle === "terminal" && inputState === "awaiting_input" && (
-          <ChatInput
-            onSubmit={handleSubmit}
-            onCommand={handleCommandWrapped}
-            disabled={false}
-            processing={false}
-            isActive={isActive}
-            inputStyle="terminal"
-            sdkCommands={sdkCommands}
-            sdkAgents={sdkAgents}
-            droppedFiles={droppedFiles}
-            onDroppedFilesConsumed={handleDroppedFilesConsumed}
-          />
-        )}
-        {inputStyle === "terminal" && inputState === "processing" && !hasUnresolvedPermission && (
-          <ChatInput
-            onSubmit={handleSubmit}
-            onCommand={handleCommandWrapped}
-            disabled={true}
-            processing={true}
-            isActive={isActive}
-            inputStyle="terminal"
-            sdkCommands={sdkCommands}
-            sdkAgents={sdkAgents}
-            droppedFiles={droppedFiles}
-            onDroppedFilesConsumed={handleDroppedFilesConsumed}
-          />
-        )}
         <div ref={messagesEndRef} />
       </div>
       </div>
-      {/* Chat mode: input below scrollable area (fixed) */}
-      {inputStyle !== "terminal" && inputState === "awaiting_input" && (
+      {/* Chat input below scrollable area (fixed) */}
+      {inputState === "awaiting_input" && (
         <ChatInput
           onSubmit={handleSubmit}
           onCommand={handleCommandWrapped}
@@ -361,7 +319,7 @@ export default memo(function ChatView(props: SessionViewProps) {
           onDroppedFilesConsumed={handleDroppedFilesConsumed}
         />
       )}
-      {inputStyle !== "terminal" && inputState === "processing" && !hasUnresolvedPermission && (
+      {inputState === "processing" && !hasUnresolvedPermission && (
         <ChatInput
           onSubmit={handleSubmit}
           onCommand={handleCommandWrapped}
@@ -374,15 +332,6 @@ export default memo(function ChatView(props: SessionViewProps) {
           droppedFiles={droppedFiles}
           onDroppedFilesConsumed={handleDroppedFilesConsumed}
         />
-      )}
-      {/* Floating mini-input for terminal mode when scrolled up */}
-      {inputStyle === "terminal" && showMiniInput && inputState === "awaiting_input" && (
-        <div className="chat-mini-input" onClick={() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-          setShowMiniInput(false);
-        }}>
-          <span className="chat-mini-input-hint">Scroll down to input</span>
-        </div>
       )}
       </div>{/* end chat-main-col */}
       {sidebarOpen && (
@@ -434,16 +383,6 @@ export default memo(function ChatView(props: SessionViewProps) {
             </div>
           )}
         </div>
-        {inputStyle === "terminal" && (
-          <button
-            className="chat-bottom-bar-attach"
-            title="Attach files"
-            aria-label="Attach files"
-            onClick={handleAttachClick}
-          >
-            +
-          </button>
-        )}
         <button
           className={`chat-bottom-bar-sidebar-toggle${sidebarOpen ? " active" : ""}`}
           title={sidebarOpen ? "Hide sidebar (Ctrl+Shift+S)" : "Show sidebar (Ctrl+Shift+S)"}
