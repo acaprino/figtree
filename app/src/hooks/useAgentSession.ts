@@ -86,6 +86,10 @@ export async function forkAgent(
   return channel;
 }
 
+export async function interruptAgent(tabId: string): Promise<void> {
+  await invoke("agent_interrupt", { tabId });
+}
+
 export async function killAgent(tabId: string): Promise<void> {
   await invoke("agent_kill", { tabId });
 }

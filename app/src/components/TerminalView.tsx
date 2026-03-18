@@ -88,7 +88,8 @@ export default memo(function TerminalView(props: SessionViewProps) {
     thinkingTextRef, thinkingIdRef, thinkingTick,
     messagesEndRef,
     handleSubmit, handlePermissionRespond, handleAskUserRespond,
-    handleCommand, handleInterrupt,
+    handleCommand, handleInterrupt, handleBackground,
+    queueLength, backgrounded,
     droppedFiles, setDroppedFiles, handleDroppedFilesConsumed, handleAttachClick,
   } = ctrl;
 
@@ -149,9 +150,13 @@ export default memo(function TerminalView(props: SessionViewProps) {
       handleInterrupt();
     } else if (e.ctrlKey && e.key === "b") {
       e.preventDefault();
-      setSidebarOpen(prev => !prev);
+      if (inputState === "processing") {
+        handleBackground();
+      } else {
+        setSidebarOpen(prev => !prev);
+      }
     }
-  }, [handleInterrupt]);
+  }, [handleInterrupt, handleBackground, inputState]);
 
   // Virtualizer
   const displayItemsRef = useRef(visibleItems);
@@ -299,19 +304,19 @@ export default memo(function TerminalView(props: SessionViewProps) {
             <ActivitySpinner label="Working..." />
           </div>
         )}
-        {/* Input — only when awaiting input */}
-        {inputState === "awaiting_input" && (
+        {/* Input — always visible when session is active */}
+        {inputState !== "idle" && !hasUnresolvedPermission && (
           <ChatInput
             onSubmit={handleSubmit}
             onCommand={handleCommand}
-            disabled={false}
-            processing={false}
+            processing={inputState === "processing"}
             isActive={isActive}
             inputStyle="terminal"
             sdkCommands={sdkCommands}
             sdkAgents={sdkAgents}
             droppedFiles={droppedFiles}
             onDroppedFilesConsumed={handleDroppedFilesConsumed}
+            queueLength={queueLength}
           />
         )}
         <div ref={messagesEndRef} />
@@ -322,6 +327,8 @@ export default memo(function TerminalView(props: SessionViewProps) {
       </div>{/* end tv-main-row */}
       {/* Bottom bar */}
       <div className="tv-bottom">
+        {backgrounded && <span className="chat-bottom-bar-bg-badge">BG</span>}
+        {queueLength > 0 && <span className="chat-bottom-bar-queue-badge">{queueLength} queued</span>}
         <span className="tv-bottom-model">{MODELS[modelIdx]?.display || "?"}</span>
         <span className="tv-bottom-sep">|</span>
         <span className={`tv-bottom-effort tv-bottom-effort--${EFFORTS[effortIdx] || "high"}`}>{EFFORTS[effortIdx] || "high"}</span>

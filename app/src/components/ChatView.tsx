@@ -106,7 +106,8 @@ export default memo(function ChatView(props: SessionViewProps) {
     thinkingTextRef, thinkingIdRef, thinkingTick,
     messagesEndRef,
     handleSubmit, handlePermissionRespond, handleAskUserRespond,
-    handleCommand, handleInterrupt,
+    handleCommand, handleInterrupt, handleBackground,
+    queueLength, backgrounded,
     droppedFiles, setDroppedFiles, handleDroppedFilesConsumed,
   } = ctrl;
 
@@ -172,7 +173,11 @@ export default memo(function ChatView(props: SessionViewProps) {
       handleInterrupt();
     } else if (e.ctrlKey && e.key === "b") {
       e.preventDefault();
-      setSidebarOpen(prev => !prev);
+      if (inputState === "processing") {
+        handleBackground();
+      } else {
+        setSidebarOpen(prev => !prev);
+      }
     } else if (e.ctrlKey && e.key === "f") {
       e.preventDefault();
       setSearchOpen(true);
@@ -190,7 +195,7 @@ export default memo(function ChatView(props: SessionViewProps) {
         }
       })();
     }
-  }, [handleInterrupt, messages]);
+  }, [handleInterrupt, handleBackground, inputState, messages]);
 
   // Wrap handleCommand to intercept /sidebar
   const handleCommandWrapped = useCallback((command: Command) => {
@@ -388,33 +393,19 @@ export default memo(function ChatView(props: SessionViewProps) {
         <div ref={messagesEndRef} />
       </div>
       </div>
-      {/* Chat input below scrollable area (fixed) */}
-      {inputState === "awaiting_input" && (
+      {/* Chat input below scrollable area (fixed) — always visible when session is active */}
+      {inputState !== "idle" && !hasUnresolvedPermission && (
         <ChatInput
           onSubmit={handleSubmit}
           onCommand={handleCommandWrapped}
-          disabled={false}
-          processing={false}
+          processing={inputState === "processing"}
           isActive={isActive}
           inputStyle="chat"
           sdkCommands={sdkCommands}
           sdkAgents={sdkAgents}
           droppedFiles={droppedFiles}
           onDroppedFilesConsumed={handleDroppedFilesConsumed}
-        />
-      )}
-      {inputState === "processing" && !hasUnresolvedPermission && (
-        <ChatInput
-          onSubmit={handleSubmit}
-          onCommand={handleCommandWrapped}
-          disabled={true}
-          processing={true}
-          isActive={isActive}
-          inputStyle="chat"
-          sdkCommands={sdkCommands}
-          sdkAgents={sdkAgents}
-          droppedFiles={droppedFiles}
-          onDroppedFilesConsumed={handleDroppedFilesConsumed}
+          queueLength={queueLength}
         />
       )}
       </div>{/* end chat-main-col */}
@@ -425,6 +416,8 @@ export default memo(function ChatView(props: SessionViewProps) {
       <div className="chat-bottom-bar">
         <div className="chat-bottom-bar-info">
           <span className={`chat-status-dot${inputState === "processing" ? " active" : inputState === "awaiting_input" ? " idle" : ""}`} title={inputState === "processing" ? "Processing" : inputState === "awaiting_input" ? "Ready" : "Connecting"} />
+          {backgrounded && <span className="chat-bottom-bar-bg-badge">BG</span>}
+          {queueLength > 0 && <span className="chat-bottom-bar-queue-badge">{queueLength} queued</span>}
           <span className="chat-bottom-bar-model">{MODELS[modelIdx]?.display || "?"}</span>
           <span className="chat-bottom-bar-sep">|</span>
           <span className={`chat-bottom-bar-effort ${EFFORTS[effortIdx] || "high"}`}>{EFFORTS[effortIdx] || "high"}</span>

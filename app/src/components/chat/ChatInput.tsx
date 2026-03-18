@@ -12,7 +12,6 @@ import "./ChatInput.css";
 interface Props {
   onSubmit: (text: string, attachments: Attachment[]) => void;
   onCommand?: (command: Command) => void;
-  disabled: boolean;
   processing: boolean;
   isActive: boolean;
   inputStyle?: "chat" | "terminal";
@@ -21,6 +20,7 @@ interface Props {
   /** File paths from drag-drop on ChatView — consumed and cleared via onDroppedFilesConsumed */
   droppedFiles?: string[];
   onDroppedFilesConsumed?: () => void;
+  queueLength?: number;
 }
 
 let chipCounter = 0;
@@ -33,7 +33,7 @@ function extToType(name: string): "file" | "image" {
   return ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext) ? "image" : "file";
 }
 
-export default memo(function ChatInput({ onSubmit, onCommand, disabled, processing, isActive, inputStyle = "chat", sdkCommands, sdkAgents, droppedFiles, onDroppedFilesConsumed }: Props) {
+export default memo(function ChatInput({ onSubmit, onCommand, processing, isActive, inputStyle = "chat", sdkCommands, sdkAgents, droppedFiles, onDroppedFilesConsumed, queueLength = 0 }: Props) {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showCommandMenu, setShowCommandMenu] = useState(false);
@@ -41,12 +41,12 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
   const [menuFilter, setMenuFilter] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-focus when active and not disabled
+  // Auto-focus when active
   useEffect(() => {
-    if (isActive && !disabled) {
+    if (isActive) {
       textareaRef.current?.focus();
     }
-  }, [isActive, disabled]);
+  }, [isActive]);
 
   // Auto-grow textarea
   useEffect(() => {
@@ -132,7 +132,7 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled && hasContent) handleSubmit();
+      if (hasContent) handleSubmit();
     }
   };
 
@@ -246,7 +246,6 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
               onClick={handleAttachClick}
               title="Attach files"
               aria-label="Attach files"
-              disabled={disabled}
             >
               +
             </button>
@@ -258,18 +257,17 @@ export default memo(function ChatInput({ onSubmit, onCommand, disabled, processi
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={processing ? "Claude is working... (Ctrl+C to interrupt)" : "Type a message... (/ for commands, @ for agents)"}
+            placeholder={processing ? "Agent working... type to queue (Ctrl+C to interrupt)" : "Type a message... (/ for commands, @ for agents)"}
             rows={1}
-            disabled={disabled}
           />
           <button
             className="chat-input-send-btn"
             onClick={handleSubmit}
-            disabled={disabled || !hasContent}
-            title="Send message"
+            disabled={!hasContent}
+            title={processing && queueLength > 0 ? `Send (${queueLength} queued)` : "Send message"}
             aria-label="Send message"
           >
-            &gt;
+            {processing && queueLength > 0 ? <><span className="queue-badge">{queueLength}</span>&gt;</> : <>&gt;</>}
           </button>
         </div>
       </div>

@@ -462,6 +462,18 @@ pub fn agent_fork(
 }
 
 #[tauri::command]
+pub fn agent_interrupt(
+    sidecar: State<'_, Arc<SidecarManager>>,
+    tab_id: String,
+) -> Result<(), String> {
+    log_info!("agent_interrupt: tab={tab_id}");
+    sidecar.send_command(&serde_json::json!({
+        "cmd": "interrupt",
+        "tabId": tab_id,
+    }))
+}
+
+#[tauri::command]
 pub fn agent_kill(
     sidecar: State<'_, Arc<SidecarManager>>,
     tab_id: String,

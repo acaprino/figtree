@@ -952,6 +952,30 @@
 .chat-status-dot.active { background: var(--green); }
 .chat-status-dot.idle { background: var(--accent); }
 
+.chat-bottom-bar-bg-badge {
+  font-size: var(--text-xs);
+  color: var(--yellow);
+  border: 1px solid color-mix(in srgb, var(--yellow) 40%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0 3px;
+  line-height: 1.4;
+  animation: bg-pulse 2s ease-in-out infinite;
+}
+
+@keyframes bg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.chat-bottom-bar-queue-badge {
+  font-size: var(--text-xs);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
 .chat-bottom-bar-model {
   color: var(--accent);
   font-weight: 600;

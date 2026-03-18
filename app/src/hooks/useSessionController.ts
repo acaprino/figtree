@@ -4,7 +4,7 @@
  * share the same agent plumbing.
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages } from "./useAgentSession";
+import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, interruptAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages } from "./useAgentSession";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { MODELS, EFFORTS, PERM_MODES } from "../types";
 import type { AgentEvent, AgentTask, Attachment, ChatMessage, PermissionSuggestion, SlashCommand, AgentInfoSDK } from "../types";
@@ -108,11 +108,14 @@ export interface SessionController {
   thinkingTick: number;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   // Actions
+  queueLength: number;
+  backgrounded: boolean;
   handleSubmit: (text: string, attachments: Attachment[]) => Promise<void>;
   handlePermissionRespond: (msgId: string, allow: boolean, suggestions?: PermissionSuggestion[]) => void;
   handleAskUserRespond: (msgId: string, answers: Record<string, string>) => void;
   handleCommand: (command: Command) => void;
   handleInterrupt: () => void;
+  handleBackground: () => void;
   // File attachment
   droppedFiles: string[];
   setDroppedFiles: React.Dispatch<React.SetStateAction<string[]>>;
@@ -128,12 +131,20 @@ export function useSessionController(props: SessionControllerProps): SessionCont
   } = props;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputState, setInputState] = useState<"idle" | "awaiting_input" | "processing">("idle");
+  const [inputState, setInputStateRaw] = useState<"idle" | "awaiting_input" | "processing">("idle");
   const [stats, dispatchStats] = useReducer(statsReducer, INITIAL_STATS);
   const [sdkCommands, setSdkCommands] = useState<SlashCommand[]>([]);
   const [sdkAgents, setSdkAgents] = useState<AgentInfoSDK[]>([]);
   const [agentTasks, setAgentTasks] = useState<AgentTask[]>([]);
   const [droppedFiles, setDroppedFiles] = useState<string[]>([]);
+  const messageQueueRef = useRef<string[]>([]);
+  const [queueLength, setQueueLength] = useState(0);
+  const [backgrounded, setBackgrounded] = useState(false);
+  const inputStateRef = useRef(inputState);
+  const setInputState = useCallback((s: "idle" | "awaiting_input" | "processing") => {
+    inputStateRef.current = s;
+    setInputStateRaw(s);
+  }, []);
   const agentTasksRef = useRef<AgentTask[]>([]);
   const taskFlushRafRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -292,9 +303,18 @@ export function useSessionController(props: SessionControllerProps): SessionCont
       } else if (event.type === "inputRequired") {
         finalizeStreaming();
         finalizeThinking();
-        setInputState("awaiting_input");
+        // Drain message queue: if there are queued messages, send the next one
+        if (messageQueueRef.current.length > 0) {
+          const next = messageQueueRef.current.shift()!;
+          setQueueLength(messageQueueRef.current.length);
+          sendAgentMessage(tabId, next).catch(() => {});
+          setInputState("processing");
+        } else {
+          setInputState("awaiting_input");
+          setBackgrounded(false);
+          notifyAttention("Input Required", "Claude is waiting for your input").catch(() => {});
+        }
         onTaglineChangeRef.current?.(tabIdRef.current, "");
-        notifyAttention("Input Required", "Claude is waiting for your input").catch(() => {});
       } else if (event.type === "thinking") {
         finalizeStreaming();
         if (!thinkingIdRef.current) {
@@ -344,6 +364,16 @@ export function useSessionController(props: SessionControllerProps): SessionCont
           }
           return [...prev, { id: nextId(), role: "error", code: event.code, message: event.message, timestamp: Date.now() }];
         });
+      } else if (event.type === "interrupted") {
+        finalizeStreaming();
+        finalizeThinking();
+        // Clear queue and background state — interrupted session starts fresh
+        messageQueueRef.current = [];
+        setQueueLength(0);
+        setBackgrounded(false);
+        // Interrupted — session will be resumed by sidecar, just update UI
+        setMessages(prev => [...prev, { id: nextId(), role: "status", status: "Interrupted", model: "", timestamp: Date.now() }]);
+        // Don't change inputState — the resumed session will emit input_required or start processing
       } else if (event.type === "exit") {
         finalizeStreaming();
         finalizeThinking();
@@ -515,7 +545,6 @@ export function useSessionController(props: SessionControllerProps): SessionCont
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleSubmit = useCallback(async (text: string, attachments: Attachment[]) => {
     if (!agentStartedRef.current) return;
-    setInputState("processing");
 
     const escXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -538,19 +567,25 @@ export function useSessionController(props: SessionControllerProps): SessionCont
       const attachPrefix = parts.join("\n");
       fullText = attachPrefix + (text ? "\n\n" + text : "");
     }
-    if (!fullText.trim()) {
-      setInputState("awaiting_input");
-      return;
-    }
-    if (!agentStartedRef.current || exitedRef.current) {
-      setInputState("awaiting_input");
-      return;
-    }
+    if (!fullText.trim()) return;
+    if (!agentStartedRef.current || exitedRef.current) return;
+
     const sanitized = sanitizeInput(fullText);
     setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "user", text: fullText, timestamp: Date.now() }]);
-    sendAgentMessage(tabId, sanitized).catch((err) => {
-      setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "error", code: "send", message: String(err), timestamp: Date.now() }]);
-    });
+
+    if (inputStateRef.current === "awaiting_input") {
+      // Normal send — transition to processing
+      setInputState("processing");
+      sendAgentMessage(tabId, sanitized).catch((err) => {
+        setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "error", code: "send", message: String(err), timestamp: Date.now() }]);
+      });
+    } else {
+      // Already processing — queue locally, will be sent when inputRequired fires
+      messageQueueRef.current.push(sanitized);
+      setQueueLength(messageQueueRef.current.length);
+      // Typing during processing implies backgrounding
+      setBackgrounded(true);
+    }
   }, [tabId]);
 
   // ── Permission response ─────────────────────────────────────────
@@ -673,8 +708,18 @@ export function useSessionController(props: SessionControllerProps): SessionCont
 
   // ── Interrupt ──────────────────────────────────────────────────
   const handleInterrupt = useCallback(() => {
-    killAgent(tabId).catch(() => {});
+    if (inputStateRef.current === "awaiting_input") return;
+    if (exitedRef.current) return;
+    interruptAgent(tabId).catch(() => {
+      // Fallback to hard kill if interrupt fails
+      killAgent(tabId).catch(() => {});
+    });
   }, [tabId]);
+
+  // ── Background ────────────────────────────────────────────────
+  const handleBackground = useCallback(() => {
+    setBackgrounded(true);
+  }, []);
 
   // ── File attachment ────────────────────────────────────────────
   const handleDroppedFilesConsumed = useCallback(() => setDroppedFiles([]), []);
@@ -725,11 +770,12 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     messages, displayItems, deferredMessages,
     inputState, stats, agentTasks, sdkCommands, sdkAgents,
     hasUnresolvedPermission,
+    queueLength, backgrounded,
     streamingTextRef, streamingIdRef, streamingTick,
     thinkingTextRef, thinkingIdRef, thinkingTick,
     messagesEndRef,
     handleSubmit, handlePermissionRespond, handleAskUserRespond,
-    handleCommand, handleInterrupt,
+    handleCommand, handleInterrupt, handleBackground,
     droppedFiles, setDroppedFiles, handleDroppedFilesConsumed, handleAttachClick,
   };
 }

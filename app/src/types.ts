@@ -195,6 +195,7 @@ export type AgentEvent =
   | { type: "taskStarted"; taskId: string; description: string; taskType: string }
   | { type: "taskProgress"; taskId: string; description: string; totalTokens: number; toolUses: number; durationMs: number; lastToolName: string; summary: string }
   | { type: "taskNotification"; taskId: string; status: "completed" | "failed" | "stopped"; summary: string; totalTokens: number; toolUses: number; durationMs: number }
+  | { type: "interrupted" }
   | { type: "error"; code: string; message: string }
   | { type: "exit"; code: number };
 

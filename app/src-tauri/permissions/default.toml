@@ -136,6 +136,11 @@ description = "Allows forking an agent session"
 commands.allow = ["agent_fork"]
 
 [[permission]]
+identifier = "allow-agent-interrupt"
+description = "Allows soft-interrupting an agent session (abort + resume)"
+commands.allow = ["agent_interrupt"]
+
+[[permission]]
 identifier = "allow-agent-kill"
 description = "Allows killing an agent session"
 commands.allow = ["agent_kill"]

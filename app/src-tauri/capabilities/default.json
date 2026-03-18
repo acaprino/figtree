@@ -37,6 +37,7 @@
     "allow-agent-send",
     "allow-agent-resume",
     "allow-agent-fork",
+    "allow-agent-interrupt",
     "allow-agent-kill",
     "allow-agent-permission",
     "allow-agent-set-model",

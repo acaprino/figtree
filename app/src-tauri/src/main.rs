@@ -140,6 +140,7 @@ fn main() {
             commands::agent_send,
             commands::agent_resume,
             commands::agent_fork,
+            commands::agent_interrupt,
             commands::agent_kill,
             commands::agent_permission,
             commands::agent_ask_response,

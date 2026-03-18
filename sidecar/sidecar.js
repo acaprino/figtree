@@ -278,6 +278,11 @@ async function handleCreate(cmd) {
   session.query = q;
   sessions.set(tabId, session);
 
+  // Save config for interrupt-resume
+  session._config = { cwd: cwd || process.cwd(), model, effort, systemPrompt, permMode, skipPerms, allowedTools, plugins };
+  session._sessionId = "";
+  session._interrupted = false;
+
   session._pushInput = (text) => {
     if (inputResolve) {
       const r = inputResolve;
@@ -290,6 +295,8 @@ async function handleCreate(cmd) {
 
   // Consume the async generator and emit events
   consumeQuery(tabId, q, session).catch((err) => {
+    // Skip if this session was interrupted (handleInterrupt manages lifecycle)
+    if (session._interrupted) return;
     // Only report if we're still the active session
     if (sessions.get(tabId) === session) {
       log(`Error in session ${tabId}:`, err.message);
@@ -414,6 +421,7 @@ async function consumeQuery(tabId, q, sessionRef) {
           if (msg.subtype === "init") {
             const sid = msg.session_id || msg.data?.session_id || "";
             if (sid) {
+              session._sessionId = sid;
               emit({ evt: "status", tabId, status: "init", model: "", sessionId: sid });
             }
             // Fetch available commands and agents from the SDK
@@ -514,6 +522,8 @@ async function consumeQuery(tabId, q, sessionRef) {
   } finally {
     // Query finished — only clean up if WE are still the active session.
     // A replacement session (from StrictMode re-mount) may have taken over.
+    // Skip cleanup if this session was interrupted (handleInterrupt manages lifecycle)
+    if (sessionRef._interrupted) return;
     const current = sessions.get(tabId);
     if (current && current === sessionRef) {
       sessions.delete(tabId);
@@ -609,6 +619,60 @@ function handleAskUserResponse(cmd) {
     behavior: "deny",
     message: `User answered the questions via Anvil UI:\n${answerLines.join("\n")}`,
   });
+}
+
+// Guard against re-entrant interrupts (rapid Ctrl+C)
+const _interruptingTabs = new Set();
+
+async function handleInterrupt(cmd) {
+  const tabId = cmd.tabId;
+  if (_interruptingTabs.has(tabId)) return;
+
+  const session = sessions.get(tabId);
+  if (!session) {
+    log(`No session to interrupt for tab ${tabId}`);
+    return;
+  }
+
+  _interruptingTabs.add(tabId);
+  try {
+    const sessionId = session._sessionId || "";
+    const config = session._config || {};
+
+    // Mark session as interrupted so consumeQuery won't emit spurious exit
+    session._interrupted = true;
+
+    // Flush any pending batched streaming data
+    flushTab(tabId);
+
+    // Abort the current query
+    session._pushInput(null);
+    session.abortController.abort();
+
+    // Resolve any pending permission or askUser
+    if (session.pendingPermission) {
+      session.pendingPermission.resolve({ behavior: "deny", message: "Interrupted" });
+      session.pendingPermission = null;
+    }
+    if (session.pendingAskUser) {
+      session.pendingAskUser.resolve({ behavior: "deny", message: "Interrupted" });
+      session.pendingAskUser = null;
+    }
+
+    session.query?.close();
+    sessions.delete(tabId);
+    autocompleteTimestamps.delete(tabId);
+
+    emit({ evt: "interrupted", tabId, sessionId });
+
+    // Resume same session with validated config
+    if (sessionId) {
+      const safePerm = VALID_PERM_MODES.has(config.permMode) ? config.permMode : "plan";
+      await handleCreate({ tabId, sessionId, ...config, permMode: safePerm });
+    }
+  } finally {
+    _interruptingTabs.delete(tabId);
+  }
 }
 
 async function handleSetModel(cmd) {
@@ -869,6 +933,9 @@ rl.on("line", async (line) => {
       case "fork":
         cmd.fork = true;
         await handleCreate(cmd);
+        break;
+      case "interrupt":
+        await handleInterrupt(cmd);
         break;
       case "kill":
         handleKill(cmd);

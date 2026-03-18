@@ -405,6 +405,12 @@
           "markdownDescription": "Allows forking an agent session"
         },
         {
+          "description": "Allows soft-interrupting an agent session (abort + resume)",
+          "type": "string",
+          "const": "allow-agent-interrupt",
+          "markdownDescription": "Allows soft-interrupting an agent session (abort + resume)"
+        },
+        {
           "description": "Allows killing an agent session",
           "type": "string",
           "const": "allow-agent-kill",

@@ -45,6 +45,7 @@ pub enum AgentEvent {
     TaskStarted { task_id: String, description: String, task_type: String },
     TaskProgress { task_id: String, description: String, total_tokens: u64, tool_uses: u32, duration_ms: u64, last_tool_name: String, summary: String },
     TaskNotification { task_id: String, status: String, summary: String, total_tokens: u64, tool_uses: u32, duration_ms: u64 },
+    Interrupted {},
     Error { code: String, message: String },
     Exit { code: i32 },
 }
@@ -411,6 +412,7 @@ impl SidecarManager {
                             tool_uses: event.tool_uses,
                             duration_ms: event.duration_ms,
                         },
+                        "interrupted" => AgentEvent::Interrupted {},
                         "error" => AgentEvent::Error { code: event.code.as_str().unwrap_or("unknown").to_string(), message: event.message },
                         "exit" => AgentEvent::Exit { code: event.code.as_i64().unwrap_or_else(|| event.code.as_str().and_then(|s| s.parse().ok()).unwrap_or(-1)) as i32 },
                         "autocomplete" => AgentEvent::Autocomplete {
