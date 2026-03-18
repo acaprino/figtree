@@ -1,0 +1,23 @@
+{
+  "name": "Sakura",
+  "termFont": "Cascadia Code",
+  "termFontSize": 14,
+  "uiFont": "Segoe UI",
+  "uiFontSize": 14,
+  "colors": {
+    "bg": "#faf0f2",
+    "surface": "#f0e0e4",
+    "mantle": "#fcf5f6",
+    "crust": "#ffffff",
+    "text": "#3a2028",
+    "textDim": "#9a8088",
+    "overlay0": "#e0d0d4",
+    "overlay1": "#c8b0b8",
+    "accent": "#d05878",
+    "red": "#c83848",
+    "green": "#508050",
+    "yellow": "#b08030",
+    "cursor": "#3a2028",
+    "selection": "#e8d0d8"
+  }
+}

@@ -10,8 +10,13 @@ import synthwave from "./synthwave.json";
 import matrix from "./matrix.json";
 import cyberpunk2077 from "./cyberpunk-2077.json";
 import lofi from "./lofi.json";
+import paper from "./light-paper.json";
+import arctic from "./light-arctic.json";
+import sakura from "./light-sakura.json";
+import solarizedLight from "./light-solarized.json";
 
 export const THEMES: Theme[] = [
+  // Dark
   anvil,
   anvilForge,
   dracula,
@@ -22,4 +27,9 @@ export const THEMES: Theme[] = [
   matrix,
   cyberpunk2077,
   lofi,
+  // Light
+  paper,
+  arctic,
+  sakura,
+  solarizedLight,
 ] as Theme[];

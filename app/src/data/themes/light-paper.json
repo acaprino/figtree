@@ -1,0 +1,23 @@
+{
+  "name": "Paper",
+  "termFont": "Cascadia Code",
+  "termFontSize": 14,
+  "uiFont": "Segoe UI",
+  "uiFontSize": 14,
+  "colors": {
+    "bg": "#f5f2ed",
+    "surface": "#e8e4de",
+    "mantle": "#faf8f5",
+    "crust": "#ffffff",
+    "text": "#2c2820",
+    "textDim": "#8a8478",
+    "overlay0": "#d0ccc5",
+    "overlay1": "#b8b4ac",
+    "accent": "#c05820",
+    "red": "#c03030",
+    "green": "#3a7830",
+    "yellow": "#a07010",
+    "cursor": "#2c2820",
+    "selection": "#d8d0c0"
+  }
+}

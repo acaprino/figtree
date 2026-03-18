@@ -49,7 +49,18 @@ export function applyTheme(themeIdx: number): void {
     root.style.removeProperty("--chat-font-size");
   }
 
+  // Detect light vs dark from bg luminance
+  const isLight = isLightColor(c.bg);
+  root.style.colorScheme = isLight ? "light" : "dark";
+
   const isRetro = !!theme.retro;
   root.classList.toggle("retro", isRetro);
   invoke("set_window_corner_preference", { retro: isRetro }).catch(() => {});
+}
+
+function isLightColor(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 140;
 }

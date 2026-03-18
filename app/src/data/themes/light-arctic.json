@@ -1,0 +1,23 @@
+{
+  "name": "Arctic",
+  "termFont": "JetBrains Mono",
+  "termFontSize": 14,
+  "uiFont": "Segoe UI",
+  "uiFontSize": 14,
+  "colors": {
+    "bg": "#eceff4",
+    "surface": "#d8dee9",
+    "mantle": "#f4f6f9",
+    "crust": "#ffffff",
+    "text": "#2e3440",
+    "textDim": "#7b8394",
+    "overlay0": "#c8cdd6",
+    "overlay1": "#aeb5c0",
+    "accent": "#5e81ac",
+    "red": "#bf616a",
+    "green": "#59864a",
+    "yellow": "#d08770",
+    "cursor": "#2e3440",
+    "selection": "#cdd5e0"
+  }
+}

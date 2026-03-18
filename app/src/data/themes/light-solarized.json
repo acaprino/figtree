@@ -1,0 +1,23 @@
+{
+  "name": "Solarized Light",
+  "termFont": "Fira Code",
+  "termFontSize": 14,
+  "uiFont": "Segoe UI",
+  "uiFontSize": 14,
+  "colors": {
+    "bg": "#fdf6e3",
+    "surface": "#eee8d5",
+    "mantle": "#fefbf2",
+    "crust": "#ffffff",
+    "text": "#586e75",
+    "textDim": "#93a1a1",
+    "overlay0": "#ddd6c1",
+    "overlay1": "#c4bda8",
+    "accent": "#268bd2",
+    "red": "#dc322f",
+    "green": "#859900",
+    "yellow": "#b58900",
+    "cursor": "#586e75",
+    "selection": "#e8e1cc"
+  }
+}
