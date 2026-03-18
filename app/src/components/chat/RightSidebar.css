@@ -45,17 +45,15 @@
   padding: var(--space-1);
   cursor: pointer;
   font-size: var(--text-sm);
+  color: var(--text);
   opacity: 0.5;
   transition: opacity 0.1s, background 0.1s;
+  position: relative;
 }
 
 .right-sidebar-tab:hover {
   opacity: 0.8;
   background: var(--hover-overlay-subtle);
-}
-
-.right-sidebar-tab {
-  position: relative;
 }
 
 .light-theme .right-sidebar-tab { opacity: 0.7; }
