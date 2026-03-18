@@ -138,8 +138,8 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
               >
                 <div className="theme-preview-colors" style={{ background: theme.colors.bg }}>
                   <div className="theme-swatch-row">
-                    <span style={{ color: theme.colors.text }}>abc</span>
-                    <span style={{ color: theme.colors.accent }}>fn</span>
+                    <span style={{ color: theme.colors.text }}>text</span>
+                    <span style={{ color: theme.colors.accent }}>accent</span>
                     <span style={{ color: theme.colors.green }}>ok</span>
                     <span style={{ color: theme.colors.red }}>err</span>
                     <span style={{ color: theme.colors.yellow }}>warn</span>
@@ -152,7 +152,7 @@ export default memo(function SettingsModal({ settings, onClose, onUpdate }: Sett
                     <span style={{ background: theme.colors.yellow }}></span>
                   </div>
                 </div>
-                <div className="theme-preview-name">{theme.name}</div>
+                <div className="theme-preview-name" style={{ background: theme.colors.surface, color: theme.colors.text }}>{theme.name}</div>
               </button>
             ))}
           </div>
