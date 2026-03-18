@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { MODELS, EFFORTS } from "../types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -109,7 +109,34 @@ export default memo(function ChatView(props: SessionViewProps) {
 
   const [isDragging, setIsDragging] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIdx, setSearchIdx] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Search: find matching displayItem indices
+  const searchMatches = useMemo(() => {
+    if (!searchQuery) return [];
+    const q = searchQuery.toLowerCase();
+    const matches: number[] = [];
+    displayItems.forEach((item, i) => {
+      if (item.role === "tool-group") {
+        if (item.tools.some(t => t.tool.toLowerCase().includes(q) || String(t.input).toLowerCase().includes(q) || (t.output || "").toLowerCase().includes(q))) {
+          matches.push(i);
+        }
+      } else if (item.role === "user" || item.role === "assistant") {
+        if (item.text.toLowerCase().includes(q)) matches.push(i);
+      } else if (item.role === "tool") {
+        if (item.tool.toLowerCase().includes(q) || String(item.input).toLowerCase().includes(q) || (item.output || "").toLowerCase().includes(q)) {
+          matches.push(i);
+        }
+      } else if (item.role === "error") {
+        if (item.message.toLowerCase().includes(q)) matches.push(i);
+      }
+    });
+    return matches;
+  }, [displayItems, searchQuery]);
 
   // Auto-scroll on new messages or streaming updates
   useEffect(() => {
@@ -143,6 +170,10 @@ export default memo(function ChatView(props: SessionViewProps) {
     } else if (e.ctrlKey && e.key === "b") {
       e.preventDefault();
       setSidebarOpen(prev => !prev);
+    } else if (e.ctrlKey && e.key === "f") {
+      e.preventDefault();
+      setSearchOpen(true);
+      requestAnimationFrame(() => searchInputRef.current?.focus());
     }
   }, [handleInterrupt]);
 
@@ -230,6 +261,44 @@ export default memo(function ChatView(props: SessionViewProps) {
       <div className="chat-main-row">
       <div className="chat-main-col">
       <div ref={chatContainerRef} className="chat-messages" role="log" aria-live="polite" aria-label="Conversation">
+      {searchOpen && (
+        <div className="chat-search-bar">
+          <input
+            ref={searchInputRef}
+            className="chat-search-input"
+            type="text"
+            placeholder="Search messages..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setSearchIdx(0); }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setSearchOpen(false);
+                setSearchQuery("");
+              } else if (e.key === "Enter" && searchMatches.length > 0) {
+                e.preventDefault();
+                const next = e.shiftKey
+                  ? (searchIdx - 1 + searchMatches.length) % searchMatches.length
+                  : (searchIdx + 1) % searchMatches.length;
+                setSearchIdx(next);
+                virtualizer.scrollToIndex(searchMatches[next], { align: "center", behavior: "smooth" });
+              }
+            }}
+          />
+          {searchQuery && (
+            <span className="chat-search-count">
+              {searchMatches.length > 0 ? `${searchIdx + 1} of ${searchMatches.length}` : "No matches"}
+            </span>
+          )}
+          <button
+            className="chat-search-close"
+            onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+            aria-label="Close search"
+          >
+            {"\u2715"}
+          </button>
+        </div>
+      )}
       <div className="chat-messages-inner">
         {messages.length === 0 && !streamingIdRef.current && !thinkingIdRef.current && inputState === "idle" && (
           <div className="chat-msg chat-msg--status">Starting agent...</div>
