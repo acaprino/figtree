@@ -231,7 +231,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
       if (event.type === "assistant") {
         if (event.streaming) {
           // If thinking was active, finalize it before appending more text
-          finalizeThinking();
+          if (thinkingIdRef.current) finalizeThinking();
           if (!streamingIdRef.current) {
             streamingIdRef.current = nextId();
             streamingTextRef.current = event.text;
