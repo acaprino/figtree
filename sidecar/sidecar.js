@@ -143,14 +143,15 @@ async function handleCreate(cmd) {
   }
 
   // Resolve permission mode from the new permMode string or legacy skipPerms boolean
+  // Stored as mutable object so it can be updated mid-session via set_perm_mode command
   const rawPermMode = permMode || (skipPerms ? "bypassPermissions" : null);
-  const resolvedPermMode = rawPermMode && VALID_PERM_MODES.has(rawPermMode) ? rawPermMode : null;
+  const permState = { mode: rawPermMode && VALID_PERM_MODES.has(rawPermMode) ? rawPermMode : null };
 
-  if (resolvedPermMode === "bypassPermissions") {
+  if (permState.mode === "bypassPermissions") {
     options.permissionMode = "bypassPermissions";
     options.allowDangerouslySkipPermissions = true;
-  } else if (resolvedPermMode) {
-    options.permissionMode = resolvedPermMode;
+  } else if (permState.mode) {
+    options.permissionMode = permState.mode;
   }
   // else: no explicit permissionMode — SDK uses its default
 
@@ -160,12 +161,12 @@ async function handleCreate(cmd) {
   // For plan/default, prompt for everything.
   options.canUseTool = async (toolName, input, opts) => {
     // Bypass mode: auto-allow everything
-    if (resolvedPermMode === "bypassPermissions") {
+    if (permState.mode === "bypassPermissions") {
       return { behavior: "allow" };
     }
 
     // AcceptEdits mode: auto-allow file-editing tools
-    if (resolvedPermMode === "acceptEdits" && ACCEPT_EDITS_TOOLS.has(toolName)) {
+    if (permState.mode === "acceptEdits" && ACCEPT_EDITS_TOOLS.has(toolName)) {
       return { behavior: "allow" };
     }
 
@@ -283,6 +284,7 @@ async function handleCreate(cmd) {
     inputQueue,
     pendingPermission: null,
     pendingAskUser: null,
+    permState,
   };
 
   // Start the query
@@ -704,6 +706,18 @@ async function handleSetModel(cmd) {
   }
 }
 
+function handleSetPermMode(cmd) {
+  const session = sessions.get(cmd.tabId);
+  if (!session?.permState) {
+    emit({ evt: "error", tabId: cmd.tabId, code: "not_found", message: "Session not found" });
+    return;
+  }
+  const newMode = VALID_PERM_MODES.has(cmd.permMode) ? cmd.permMode : "plan";
+  session.permState.mode = newMode;
+  if (session._config) session._config.permMode = newMode;
+  emit({ evt: "status", tabId: cmd.tabId, status: "perm_mode_changed", permMode: newMode });
+}
+
 async function handleRefreshCommands(cmd) {
   const sessionTabId = cmd.sessionTabId;
   const session = sessions.get(sessionTabId);
@@ -963,6 +977,9 @@ rl.on("line", async (line) => {
         break;
       case "set_model":
         await handleSetModel(cmd);
+        break;
+      case "set_perm_mode":
+        handleSetPermMode(cmd);
         break;
       case "list_sessions":
         await handleListSessions(cmd);

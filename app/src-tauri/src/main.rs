@@ -146,6 +146,7 @@ fn main() {
             commands::agent_permission,
             commands::agent_ask_response,
             commands::agent_set_model,
+            commands::agent_set_perm_mode,
             commands::list_agent_sessions,
             commands::get_agent_messages,
             commands::agent_autocomplete,

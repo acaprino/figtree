@@ -98,6 +98,27 @@ export default memo(function TerminalView(props: SessionViewProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Sticky auto-scroll: stay pinned to bottom unless user scrolls up
+  const stickyRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 60;
+      if (scrollTop < lastScrollTopRef.current && !atBottom) {
+        stickyRef.current = false;
+      } else if (atBottom) {
+        stickyRef.current = true;
+      }
+      lastScrollTopRef.current = scrollTop;
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
   // ── Turn collapsing: hide tool/thinking/permission/status noise from previous turns ──
   // A "turn" starts at each user message. Only the last turn shows full detail.
   // Previous turns keep user + assistant messages, everything else is hidden.
@@ -121,14 +142,10 @@ export default memo(function TerminalView(props: SessionViewProps) {
     return result;
   }, [displayItems]);
 
-  // Auto-scroll
+  // Auto-scroll (only when sticky)
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (nearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-    }
+    if (!stickyRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages, streamingTick, thinkingTick, messagesEndRef]);
 
   // Auto-focus textarea when window regains focus
@@ -308,7 +325,7 @@ export default memo(function TerminalView(props: SessionViewProps) {
         {/* Input — always visible when session is active */}
         {inputState !== "idle" && !hasUnresolvedPermission && (
           <ChatInput
-            onSubmit={handleSubmit}
+            onSubmit={(...args) => { stickyRef.current = true; handleSubmit(...args); }}
             onCommand={handleCommand}
             processing={inputState === "processing"}
             isActive={isActive}

@@ -540,6 +540,19 @@ pub fn agent_set_model(
 }
 
 #[tauri::command]
+pub fn agent_set_perm_mode(
+    sidecar: State<'_, Arc<SidecarManager>>,
+    tab_id: String,
+    perm_mode: String,
+) -> Result<(), String> {
+    sidecar.send_command(&serde_json::json!({
+        "cmd": "set_perm_mode",
+        "tabId": tab_id,
+        "permMode": perm_mode,
+    }))
+}
+
+#[tauri::command]
 pub async fn list_agent_sessions(
     sidecar: State<'_, Arc<SidecarManager>>,
     cwd: Option<String>,

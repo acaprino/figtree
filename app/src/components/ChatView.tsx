@@ -120,6 +120,29 @@ export default memo(function ChatView(props: SessionViewProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Sticky auto-scroll: stay pinned to bottom unless user scrolls up
+  const stickyRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const atBottom = scrollHeight - scrollTop - clientHeight < 60;
+      if (scrollTop < lastScrollTopRef.current && !atBottom) {
+        // User scrolled up — disengage auto-scroll
+        stickyRef.current = false;
+      } else if (atBottom) {
+        // User scrolled back to bottom — re-engage
+        stickyRef.current = true;
+      }
+      lastScrollTopRef.current = scrollTop;
+    };
+    el.addEventListener("scroll", handleScroll, { passive: true });
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, []);
+
   // Search: find matching displayItem indices
   const searchMatches = useMemo(() => {
     if (!searchQuery) return [];
@@ -143,14 +166,10 @@ export default memo(function ChatView(props: SessionViewProps) {
     return matches;
   }, [displayItems, searchQuery]);
 
-  // Auto-scroll on new messages or streaming updates
+  // Auto-scroll on new messages or streaming updates (only when sticky)
   useEffect(() => {
-    const el = chatContainerRef.current;
-    if (!el) return;
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (nearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-    }
+    if (!stickyRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages, streamingTick, thinkingTick, messagesEndRef]);
 
 
@@ -398,7 +417,7 @@ export default memo(function ChatView(props: SessionViewProps) {
       {/* Chat input below scrollable area (fixed) — always visible when session is active */}
       {inputState !== "idle" && !hasUnresolvedPermission && (
         <ChatInput
-          onSubmit={handleSubmit}
+          onSubmit={(...args) => { stickyRef.current = true; handleSubmit(...args); }}
           onCommand={handleCommandWrapped}
           processing={inputState === "processing"}
           isActive={isActive}

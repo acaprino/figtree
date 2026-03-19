@@ -4,7 +4,7 @@
  * share the same agent plumbing.
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, interruptAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages } from "./useAgentSession";
+import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, interruptAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages, setAgentPermMode } from "./useAgentSession";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { MODELS, EFFORTS, PERM_MODES } from "../types";
 import type { AgentEvent, AgentTask, Attachment, ChatMessage, PermissionSuggestion, SlashCommand, AgentInfoSDK } from "../types";
@@ -185,10 +185,11 @@ export function useSessionController(props: SessionControllerProps): SessionCont
 
   // ── Agent lifecycle ─────────────────────────────────────────────
   // Contract: this effect runs once on mount. Config values (modelIdx, effortIdx,
-  // permModeIdx, systemPrompt, plugins, resumeSessionId, forkSessionId) are captured
-  // at mount time only. The parent MUST use a React key that changes when these values
-  // change (e.g., `key={tabId}-${resumeSessionId}-${forkSessionId}`) to force a
-  // full remount with fresh values. Callback props are indirected through refs above.
+  // systemPrompt, plugins, resumeSessionId, forkSessionId) are captured at mount
+  // time only. The parent MUST use a React key that changes when these values
+  // change to force a full remount with fresh values.
+  // permModeIdx is synced to the sidecar live via a separate effect — no remount needed.
+  // Callback props are indirected through refs above.
   useEffect(() => {
     const pendingKill = _pendingKills.get(tabId);
     if (pendingKill) {
@@ -544,6 +545,16 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Sync permission mode changes to sidecar without remount ────
+  const permModeIdxRef = useRef(permModeIdx);
+  useEffect(() => {
+    if (permModeIdx === permModeIdxRef.current) return;
+    permModeIdxRef.current = permModeIdx;
+    if (!agentStartedRef.current) return;
+    const permMode = PERM_MODES[permModeIdx]?.sdk || "plan";
+    setAgentPermMode(tabId, permMode).catch(() => {});
+  }, [permModeIdx, tabId]);
 
   // ── Input submission ────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
