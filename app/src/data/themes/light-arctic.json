@@ -10,13 +10,13 @@
     "mantle": "#f4f6f9",
     "crust": "#ffffff",
     "text": "#2e3440",
-    "textDim": "#7b8394",
-    "overlay0": "#c8cdd6",
-    "overlay1": "#aeb5c0",
+    "textDim": "#5c6271",
+    "overlay0": "#9098a5",
+    "overlay1": "#666d79",
     "accent": "#5e81ac",
     "red": "#bf616a",
     "green": "#59864a",
-    "yellow": "#d08770",
+    "yellow": "#c26446",
     "cursor": "#2e3440",
     "selection": "#cdd5e0"
   }
