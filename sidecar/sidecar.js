@@ -153,45 +153,59 @@ async function handleCreate(cmd) {
   }
   // else: no explicit permissionMode — SDK uses its default
 
-  // For all modes except bypassPermissions, route permission requests to Anvil UI
-  if (resolvedPermMode !== "bypassPermissions") {
-    options.canUseTool = async (toolName, input, opts) => {
-      const description = toolName === "Bash"
-        ? (input.command || "").slice(0, 200)
-        : toolName === "Edit" || toolName === "Write" || toolName === "Read"
-          ? (input.file_path || "")
-          : JSON.stringify(input).slice(0, 200);
+  // Tools that are auto-approved in acceptEdits mode
+  const ACCEPT_EDITS_TOOLS = new Set(["Write", "Edit", "Read", "Glob", "Grep", "NotebookEdit"]);
 
-      emit({
-        evt: "permission",
-        tabId,
-        tool: toolName,
-        description: String(description),
-        toolUseId: opts.toolUseID,
-        permissionSuggestions: opts.suggestions || [],
-      });
+  // Always register canUseTool to route permission decisions through Anvil UI.
+  // For bypassPermissions, auto-allow everything without prompting.
+  // For acceptEdits, auto-allow file-editing tools and prompt for the rest.
+  // For plan/default, prompt for everything.
+  options.canUseTool = async (toolName, input, opts) => {
+    // Bypass mode: auto-allow everything
+    if (resolvedPermMode === "bypassPermissions") {
+      return { behavior: "allow" };
+    }
 
-      // Wait for permission response from frontend (timeout after 5 minutes)
-      const result = await new Promise((resolve) => {
-        const session = sessions.get(tabId);
-        if (!session) {
-          resolve({ behavior: "deny", message: "Session not found" });
-          return;
+    // AcceptEdits mode: auto-allow file-editing tools
+    if (resolvedPermMode === "acceptEdits" && ACCEPT_EDITS_TOOLS.has(toolName)) {
+      return { behavior: "allow" };
+    }
+
+    const description = toolName === "Bash"
+      ? (input.command || "").slice(0, 200)
+      : toolName === "Edit" || toolName === "Write" || toolName === "Read"
+        ? (input.file_path || "")
+        : JSON.stringify(input).slice(0, 200);
+
+    emit({
+      evt: "permission",
+      tabId,
+      tool: toolName,
+      description: String(description),
+      toolUseId: opts.toolUseID,
+      permissionSuggestions: opts.suggestions || [],
+    });
+
+    // Wait for permission response from frontend (timeout after 5 minutes)
+    const result = await new Promise((resolve) => {
+      const session = sessions.get(tabId);
+      if (!session) {
+        resolve({ behavior: "deny", message: "Session not found" });
+        return;
+      }
+      const timeout = setTimeout(() => {
+        if (session.pendingPermission?.toolUseId === opts.toolUseID) {
+          session.pendingPermission = null;
+          resolve({ behavior: "deny", message: "Permission request timed out" });
         }
-        const timeout = setTimeout(() => {
-          if (session.pendingPermission?.toolUseId === opts.toolUseID) {
-            session.pendingPermission = null;
-            resolve({ behavior: "deny", message: "Permission request timed out" });
-          }
-        }, PERMISSION_TIMEOUT_MS);
-        session.pendingPermission = {
-          resolve: (val) => { clearTimeout(timeout); resolve(val); },
-          toolUseId: opts.toolUseID,
-        };
-      });
-      return result;
-    };
-  }
+      }, PERMISSION_TIMEOUT_MS);
+      session.pendingPermission = {
+        resolve: (val) => { clearTimeout(timeout); resolve(val); },
+        toolUseId: opts.toolUseID,
+      };
+    });
+    return result;
+  };
 
   if (allowedTools) {
     options.allowedTools = allowedTools;

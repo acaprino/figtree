@@ -396,6 +396,26 @@
   flex-shrink: 0;
 }
 
+.tv-bottom-pill {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease-out;
+}
+
+.tv-bottom-pill:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.tv-bottom-pill:active {
+  transform: scale(0.95);
+  transition-duration: 0.05s;
+}
+
 .tv-bottom-model {
   color: var(--accent);
   font-weight: 600;
@@ -408,6 +428,10 @@
 .tv-bottom-effort--high { color: var(--green); }
 .tv-bottom-effort--medium { color: var(--yellow); }
 .tv-bottom-effort--low { color: var(--red); }
+
+.tv-bottom-perm--bypassPermissions { color: var(--red); }
+.tv-bottom-perm--acceptEdits { color: var(--yellow); }
+.tv-bottom-perm--plan { color: var(--green); }
 
 .tv-bottom-cost { color: var(--green); font-weight: 600; }
 .tv-bottom-stat { color: var(--text-dim); }

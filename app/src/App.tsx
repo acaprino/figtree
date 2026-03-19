@@ -238,6 +238,18 @@ function AppContent() {
     updateTab(tabId, { temporary: false });
   }, [updateSettings, updateTab]);
 
+  const handleConfigChange = useCallback((tabId: string, update: { modelIdx?: number; effortIdx?: number; permModeIdx?: number }) => {
+    const tab = tabsRef.current.find((t) => t.id === tabId);
+    if (!tab || tab.type !== "agent") return;
+    const sessionId = tab.agentSessionId;
+    // Update tab with new config — this triggers a session restart via the key change
+    updateTab(tabId, {
+      ...update,
+      // Resume the same session so conversation history is preserved
+      resumeSessionId: sessionId || undefined,
+    });
+  }, [updateTab]);
+
   // Session panel
   const sessionPanelOpen = settings?.session_panel_open ?? false;
   const activeProjectPath = activeTab.type === "agent" ? (activeTab.projectPath ?? null) : null;
@@ -256,7 +268,7 @@ function AppContent() {
     const field = mode === "resume" ? "resumeSessionId" : "forkSessionId";
     const payload = {
       type: "agent" as const, projectPath: cwd, projectName, modelIdx, effortIdx,
-      permModeIdx: 0, autocompact, [field]: sessionId,
+      permModeIdx: settingsRef.current?.perm_mode_idx ?? 0, autocompact, [field]: sessionId,
     };
 
     if (inNewTab || activeTab.type !== "agent") {
@@ -436,7 +448,7 @@ function AppContent() {
               ) : tab.type === "agent" ? (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
                   <AgentView
-                    key={`${tab.id}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}
+                    key={`${tab.id}-${tab.modelIdx ?? 0}-${tab.effortIdx ?? 0}-${tab.permModeIdx ?? 0}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}
                     tabId={tab.id}
                     projectPath={tab.projectPath!}
                     modelIdx={tab.modelIdx ?? 0}
@@ -454,6 +466,7 @@ function AppContent() {
                     plugins={pluginPaths}
                     resumeSessionId={tab.resumeSessionId}
                     forkSessionId={tab.forkSessionId}
+                    onConfigChange={(update) => handleConfigChange(tab.id, update)}
                   />
                 </ErrorBoundary>
               ) : (

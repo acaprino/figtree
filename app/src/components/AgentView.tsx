@@ -7,6 +7,7 @@ import TerminalView from "./TerminalView";
 interface AgentViewProps extends SessionControllerProps {
   viewStyle: "terminal" | "chat";
   hideThinking?: boolean;
+  onConfigChange?: (update: { modelIdx?: number; effortIdx?: number; permModeIdx?: number }) => void;
 }
 
 /**
@@ -15,7 +16,7 @@ interface AgentViewProps extends SessionControllerProps {
  * instantiated once and passed to whichever view is active.
  */
 export default memo(function AgentView({
-  viewStyle, hideThinking, ...controllerProps
+  viewStyle, hideThinking, onConfigChange, ...controllerProps
 }: AgentViewProps) {
   const controller = useSessionController(controllerProps);
 
@@ -23,9 +24,11 @@ export default memo(function AgentView({
     tabId: controllerProps.tabId,
     modelIdx: controllerProps.modelIdx,
     effortIdx: controllerProps.effortIdx,
+    permModeIdx: controllerProps.permModeIdx,
     isActive: controllerProps.isActive,
     hideThinking,
     controller,
+    onConfigChange,
   };
 
   if (viewStyle === "terminal") {

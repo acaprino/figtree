@@ -976,7 +976,28 @@
   line-height: 1.4;
 }
 
-.chat-bottom-bar-model {
+.chat-bottom-bar-pill {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease-out;
+}
+
+.chat-bottom-bar-pill:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+.chat-bottom-bar-pill:active {
+  transform: scale(0.95);
+  transition-duration: 0.05s;
+}
+
+.chat-bottom-bar-model,
+.chat-bottom-bar-pill.chat-bottom-bar-model {
   color: var(--accent);
   font-weight: 600;
   text-transform: uppercase;
@@ -995,6 +1016,14 @@
 .chat-bottom-bar-effort.high { color: var(--green); }
 .chat-bottom-bar-effort.medium { color: var(--yellow); }
 .chat-bottom-bar-effort.low { color: var(--red); }
+
+.chat-bottom-bar-perm {
+  color: var(--text-dim);
+}
+
+.chat-bottom-bar-perm.bypassPermissions { color: var(--red); }
+.chat-bottom-bar-perm.acceptEdits { color: var(--yellow); }
+.chat-bottom-bar-perm.plan { color: var(--green); }
 
 .chat-bottom-bar-stats {
   display: flex;

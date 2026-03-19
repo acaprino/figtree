@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { MODELS, EFFORTS } from "../types";
+import { MODELS, EFFORTS, PERM_MODES } from "../types";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -93,9 +93,10 @@ const CopyMessageBtn = memo(function CopyMessageBtn({ text }: { text: string }) 
 
 export default memo(function ChatView(props: SessionViewProps) {
   const {
-    modelIdx, effortIdx, isActive,
+    modelIdx, effortIdx, permModeIdx, isActive,
     hideThinking,
     controller: ctrl,
+    onConfigChange,
   } = props;
 
   const {
@@ -419,9 +420,23 @@ export default memo(function ChatView(props: SessionViewProps) {
           <span className={`chat-status-dot${inputState === "processing" ? " active" : inputState === "awaiting_input" ? " idle" : ""}`} title={inputState === "processing" ? "Processing" : inputState === "awaiting_input" ? "Ready" : "Connecting"} />
           {backgrounded && <span className="chat-bottom-bar-bg-badge">BG</span>}
           {queueLength > 0 && <span className="chat-bottom-bar-queue-badge">{queueLength} queued</span>}
-          <span className="chat-bottom-bar-model">{MODELS[modelIdx]?.display || "?"}</span>
+          <button
+            className="chat-bottom-bar-pill"
+            title="Click to cycle model (F4)"
+            onClick={() => onConfigChange?.({ modelIdx: (modelIdx + 1) % MODELS.length })}
+          >{MODELS[modelIdx]?.display || "?"}</button>
           <span className="chat-bottom-bar-sep">|</span>
-          <span className={`chat-bottom-bar-effort ${EFFORTS[effortIdx] || "high"}`}>{EFFORTS[effortIdx] || "high"}</span>
+          <button
+            className={`chat-bottom-bar-pill chat-bottom-bar-effort ${EFFORTS[effortIdx] || "high"}`}
+            title="Click to cycle effort (F2)"
+            onClick={() => onConfigChange?.({ effortIdx: (effortIdx + 1) % EFFORTS.length })}
+          >{EFFORTS[effortIdx] || "high"}</button>
+          <span className="chat-bottom-bar-sep">|</span>
+          <button
+            className={`chat-bottom-bar-pill chat-bottom-bar-perm ${PERM_MODES[permModeIdx]?.sdk || "plan"}`}
+            title="Click to cycle permission mode (Tab)"
+            onClick={() => onConfigChange?.({ permModeIdx: (permModeIdx + 1) % PERM_MODES.length })}
+          >{PERM_MODES[permModeIdx]?.display || "plan"}</button>
         </div>
         <div className="chat-bottom-bar-stats">
           <span className="chat-bottom-bar-cost">${stats.cost.toFixed(3)}</span>
