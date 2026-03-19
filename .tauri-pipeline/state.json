@@ -1,0 +1,22 @@
+{
+  "target": "Full project (app/src-tauri + app/src)",
+  "status": "complete",
+  "flags": {
+    "rust_only": false,
+    "frontend_only": false,
+    "strict_mode": false
+  },
+  "current_phase": 6,
+  "completed_phases": [1, 2, 3, 4, 5, 6],
+  "files_created": [
+    "00-scope.md",
+    "01-rust-review.md",
+    "02-tauri-optimization.md",
+    "03-react-performance.md",
+    "04-layout.md",
+    "05-polish.md",
+    "06-final-report.md"
+  ],
+  "started_at": "2026-03-17T00:00:00Z",
+  "last_updated": "2026-03-17T00:00:00Z"
+}

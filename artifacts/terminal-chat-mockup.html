@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anvil Terminal Chat — Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap');
+
+  :root {
+    --bg: #1e1e2e;
+    --surface: #313244;
+    --mantle: #181825;
+    --crust: #11111b;
+    --text: #cdd6f4;
+    --text-dim: #6c7086;
+    --overlay0: #585b70;
+    --overlay1: #7f849c;
+    --accent: #89b4fa;
+    --red: #f38ba8;
+    --green: #a6e3a1;
+    --yellow: #f9e2af;
+    --peach: #fab387;
+    --mauve: #cba6f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: #11111b;
+    font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .terminal-frame {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* ── Title bar ─────────────────────────────────── */
+  .title-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--crust);
+    border-bottom: 1px solid rgba(88, 91, 112, 0.2);
+    font-size: 11px;
+    color: var(--text-dim);
+    -webkit-app-region: drag;
+    user-select: none;
+  }
+
+  .title-bar-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .title-bar-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0.7;
+  }
+
+  .title-bar-dot.red { background: var(--red); }
+  .title-bar-dot.yellow { background: var(--yellow); }
+  .title-bar-dot.green { background: var(--green); }
+
+  .title-bar-text {
+    flex: 1;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Scrollable output area ────────────────────── */
+  .terminal-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminal-output::-webkit-scrollbar { width: 3px; }
+  .terminal-output::-webkit-scrollbar-thumb {
+    background: rgba(88, 91, 112, 0.4);
+  }
+  .terminal-output::-webkit-scrollbar-thumb:hover {
+    background: var(--overlay1);
+  }
+  .terminal-output::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── Message blocks ────────────────────────────── */
+  .msg { line-height: 1.6; }
+
+  .msg + .msg { margin-top: 0; }
+
+  /* User input line */
+  .msg-user {
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 4px 0;
+  }
+
+  .msg-user .prompt {
+    color: var(--accent);
+    font-weight: 700;
+    margin-right: 6px;
+    user-select: none;
+  }
+
+  /* Assistant output */
+  .msg-assistant {
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 2px 0;
+  }
+
+  .msg-assistant p { margin: 0 0 4px 0; }
+  .msg-assistant p:last-child { margin-bottom: 0; }
+
+  .msg-assistant strong { color: var(--accent); font-weight: 600; }
+
+  .msg-assistant code {
+    background: rgba(17, 17, 27, 0.5);
+    padding: 1px 5px;
+    font-size: 0.95em;
+  }
+
+  .msg-assistant a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .msg-assistant ul, .msg-assistant ol {
+    padding-left: 20px;
+    margin: 2px 0;
+  }
+
+  /* ── Tool card: command execution ──────────────── */
+  .tool-card {
+    margin: 2px 0;
+  }
+
+  .tool-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 0;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 12px;
+    user-select: none;
+  }
+
+  .tool-header:hover { color: var(--overlay1); }
+
+  .tool-prefix {
+    color: var(--overlay0);
+    font-weight: 500;
+  }
+
+  .tool-name {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .tool-preview {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.4;
+    font-size: 11px;
+  }
+
+  .tool-status {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  .tool-status.ok { color: var(--green); }
+  .tool-status.fail { color: var(--red); }
+  .tool-status.pending {
+    color: var(--yellow);
+    animation: spin 1.5s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .tool-toggle {
+    font-size: 10px;
+    opacity: 0.25;
+    transition: opacity 0.1s;
+  }
+
+  .tool-header:hover .tool-toggle { opacity: 0.5; }
+
+  .tool-body {
+    padding: 2px 0 2px 16px;
+    font-size: 12px;
+    display: none;
+  }
+
+  .tool-body.open { display: block; }
+
+  .tool-input {
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 11px;
+    opacity: 0.6;
+  }
+
+  .tool-output {
+    margin-top: 2px;
+    padding-left: 8px;
+    border-left: 2px solid rgba(166, 227, 161, 0.3);
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 11px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .tool-output::-webkit-scrollbar { width: 2px; }
+  .tool-output::-webkit-scrollbar-thumb { background: rgba(88, 91, 112, 0.3); }
+
+  .tool-card.failed .tool-output {
+    border-left-color: rgba(243, 139, 168, 0.3);
+  }
+
+  /* ── Permission prompt ─────────────────────────── */
+  .perm-card {
+    margin: 2px 0;
+    padding: 2px 0;
+  }
+
+  .perm-pending {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .perm-question {
+    color: var(--yellow);
+  }
+
+  .perm-question strong {
+    color: var(--text);
+  }
+
+  .perm-btn {
+    padding: 0 6px;
+    border: 1px solid;
+    background: none;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    line-height: 1.6;
+    transition: background 0.1s;
+  }
+
+  .perm-btn:active { transform: translateY(1px); }
+
+  .perm-btn.yes {
+    border-color: var(--green);
+    color: var(--green);
+  }
+
+  .perm-btn.yes:hover {
+    background: rgba(166, 227, 161, 0.1);
+  }
+
+  .perm-btn.session {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .perm-btn.session:hover {
+    background: rgba(137, 180, 250, 0.1);
+  }
+
+  .perm-btn.no {
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .perm-btn.no:hover {
+    background: rgba(243, 139, 168, 0.1);
+  }
+
+  .perm-resolved {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-dim);
+    opacity: 0.45;
+  }
+
+  .perm-resolved .icon-ok { color: var(--green); }
+  .perm-resolved .icon-deny { color: var(--red); }
+
+  /* ── Thinking ──────────────────────────────────── */
+  .msg-thinking {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 12px;
+    opacity: 0.5;
+    padding: 1px 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .msg-thinking:hover { opacity: 0.7; }
+
+  .msg-thinking .tag {
+    font-style: normal;
+    color: var(--overlay0);
+  }
+
+  .thinking-body {
+    padding: 2px 0 2px 16px;
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 11px;
+    opacity: 0.4;
+    white-space: pre-wrap;
+    display: none;
+    border-left: 1px solid rgba(88, 91, 112, 0.25);
+  }
+
+  .thinking-body.open { display: block; }
+
+  /* ── Result bar ────────────────────────────────── */
+  .msg-result {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 11px;
+    opacity: 0.35;
+    padding: 3px 0;
+    margin: 2px 0;
+  }
+
+  .msg-result .rule {
+    flex: 1;
+    height: 1px;
+    background: rgba(88, 91, 112, 0.2);
+    min-width: 20px;
+  }
+
+  .msg-result .sep { opacity: 0.3; }
+
+  /* ── Error ──────────────────────────────────────── */
+  .msg-error {
+    color: var(--red);
+    font-size: 12px;
+    padding: 2px 0;
+  }
+
+  .msg-error .prefix {
+    font-weight: 600;
+  }
+
+  /* ── Status ─────────────────────────────────────── */
+  .msg-status {
+    color: var(--text-dim);
+    font-size: 11px;
+    opacity: 0.35;
+    padding: 1px 0;
+  }
+
+  /* ── Streaming cursor ──────────────────────────── */
+  .cursor-blink {
+    display: inline-block;
+    color: var(--accent);
+    animation: blink-cursor 1s step-end infinite;
+    font-weight: 300;
+  }
+
+  @keyframes blink-cursor {
+    50% { opacity: 0; }
+  }
+
+  /* ── Code blocks inside assistant ──────────────── */
+  .code-block {
+    margin: 4px 0;
+    border-left: 2px solid rgba(88, 91, 112, 0.25);
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1px 8px;
+    font-size: 10px;
+    border-bottom: 1px dashed rgba(88, 91, 112, 0.15);
+  }
+
+  .code-lang {
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.4;
+  }
+
+  .code-copy {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.3;
+    transition: opacity 0.1s;
+  }
+
+  .code-copy:hover { opacity: 0.8; color: var(--accent); }
+
+  .code-content {
+    background: var(--crust);
+    padding: 6px 10px;
+    font-size: 12px;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  .code-content::-webkit-scrollbar { height: 2px; }
+  .code-content::-webkit-scrollbar-thumb { background: rgba(88, 91, 112, 0.3); }
+
+  .code-content .kw { color: var(--accent); }
+  .code-content .str { color: var(--green); }
+  .code-content .num { color: var(--yellow); }
+  .code-content .fn { color: var(--accent); }
+  .code-content .cm { color: var(--overlay0); }
+  .code-content .op { color: var(--text-dim); }
+  .code-content .type { color: var(--yellow); }
+  .code-content .tag { color: var(--red); }
+  .code-content .attr { color: var(--peach); }
+
+  /* ── Input prompt ──────────────────────────────── */
+  .input-area {
+    padding: 4px 12px 6px;
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .input-prompt {
+    color: var(--accent);
+    font-weight: 700;
+    line-height: 1.6;
+    user-select: none;
+    padding-right: 6px;
+    flex-shrink: 0;
+  }
+
+  .input-field {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.6;
+    resize: none;
+    caret-color: var(--accent);
+    padding: 0;
+  }
+
+  .input-field::placeholder {
+    color: var(--overlay0);
+    opacity: 0.4;
+  }
+
+  /* ── Usage bars ────────────────────────────────── */
+  .usage-bars {
+    display: flex;
+    gap: 16px;
+    padding: 3px 12px;
+    background: var(--mantle);
+    border-top: 1px solid rgba(88, 91, 112, 0.12);
+  }
+
+  .usage-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  .usage-label {
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.4;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: 42px;
+    flex-shrink: 0;
+  }
+
+  .usage-track {
+    flex: 1;
+    height: 2px;
+    background: rgba(88, 91, 112, 0.15);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .usage-fill {
+    height: 100%;
+    border-radius: 1px;
+    transition: width 0.5s ease-out;
+  }
+
+  .usage-fill.accent { background: var(--accent); }
+  .usage-fill.warn { background: var(--yellow); }
+
+  .usage-pct {
+    font-size: 9px;
+    color: var(--text-dim);
+    opacity: 0.4;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  /* ── Separator between turns ───────────────────── */
+  .turn-gap {
+    height: 6px;
+  }
+
+  /* ── Inline list items ─────────────────────────── */
+  .file-list {
+    padding-left: 16px;
+    margin: 2px 0;
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .file-list li {
+    list-style: none;
+    padding: 0;
+  }
+
+  .file-list li::before {
+    content: "·";
+    color: var(--overlay0);
+    margin-right: 6px;
+  }
+
+  .file-list .path { color: var(--accent); }
+  .file-list .desc { color: var(--text-dim); opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<div class="terminal-frame">
+
+  <!-- Title bar -->
+  <div class="title-bar">
+    <div class="title-bar-dots">
+      <span class="title-bar-dot red"></span>
+      <span class="title-bar-dot yellow"></span>
+      <span class="title-bar-dot green"></span>
+    </div>
+    <span class="title-bar-text">anvil — my-project — claude-sonnet-4-20250514</span>
+    <span style="width: 48px;"></span>
+  </div>
+
+  <!-- Terminal output -->
+  <div class="terminal-output" id="output">
+
+    <!-- Status: session start -->
+    <div class="msg msg-status">session started · sonnet · high effort · skip-permissions: off</div>
+
+    <div class="turn-gap"></div>
+
+    <!-- Turn 1: User -->
+    <div class="msg msg-user"><span class="prompt">❯</span>refactor the auth middleware to use JWT tokens instead of session cookies</div>
+
+    <!-- Thinking -->
+    <div class="msg msg-thinking" onclick="toggleThinking(this)">
+      <span class="tag">[thinking]</span> analyzing auth middleware structure and dependencies... <span style="font-style: normal; opacity: 0.3">▸</span>
+    </div>
+    <div class="thinking-body">Let me understand the current auth setup. I need to:
+1. Find the current session-based middleware
+2. Understand what endpoints use it
+3. Plan the JWT migration without breaking existing sessions
+4. Update tests</div>
+
+    <!-- Assistant text -->
+    <div class="msg msg-assistant">I'll refactor the auth middleware from session cookies to JWT. Let me first examine the current implementation.</div>
+
+    <!-- Tool: Read -->
+    <div class="tool-card" onclick="toggleTool(this, event)">
+      <div class="tool-header">
+        <span class="tool-prefix">$</span>
+        <span class="tool-name">Read</span>
+        <span class="tool-preview">src/middleware/auth.ts</span>
+        <span class="tool-status ok">✓</span>
+        <span class="tool-toggle">▸</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input">file_path: "src/middleware/auth.ts"</div>
+        <div class="tool-output"><span class="cm">// Current session-based auth middleware</span>
+<span class="kw">import</span> { Request, Response, NextFunction } <span class="kw">from</span> <span class="str">'express'</span>;
+<span class="kw">import</span> { sessionStore } <span class="kw">from</span> <span class="str">'../stores/session'</span>;
+
+<span class="kw">export function</span> <span class="fn">authMiddleware</span>(req: Request, res: Response, next: NextFunction) {
+  <span class="kw">const</span> sessionId = req.cookies[<span class="str">'session_id'</span>];
+  <span class="kw">if</span> (!sessionId) <span class="kw">return</span> res.status(<span class="num">401</span>).json({ error: <span class="str">'Unauthorized'</span> });
+  <span class="kw">const</span> session = sessionStore.get(sessionId);
+  <span class="kw">if</span> (!session) <span class="kw">return</span> res.status(<span class="num">401</span>).json({ error: <span class="str">'Invalid session'</span> });
+  req.user = session.user;
+  next();
+}</div>
+      </div>
+    </div>
+
+    <!-- Tool: Glob -->
+    <div class="tool-card" onclick="toggleTool(this, event)">
+      <div class="tool-header">
+        <span class="tool-prefix">$</span>
+        <span class="tool-name">Grep</span>
+        <span class="tool-preview">authMiddleware → 8 files</span>
+        <span class="tool-status ok">✓</span>
+        <span class="tool-toggle">▸</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input">pattern: "authMiddleware"
+path: "src/"</div>
+        <div class="tool-output">src/routes/api.ts
+src/routes/admin.ts
+src/routes/users.ts
+src/routes/projects.ts
+src/middleware/auth.ts
+src/middleware/index.ts
+src/tests/auth.test.ts
+src/tests/api.test.ts</div>
+      </div>
+    </div>
+
+    <!-- Assistant analysis -->
+    <div class="msg msg-assistant">Found 8 files referencing <code>authMiddleware</code>. The current implementation uses a session store with cookie-based session IDs. I'll:
+
+<ul class="file-list">
+  <li><span class="path">src/middleware/auth.ts</span> <span class="desc">— rewrite to verify JWT from Authorization header</span></li>
+  <li><span class="path">src/utils/jwt.ts</span> <span class="desc">— new: sign/verify helpers with RS256</span></li>
+  <li><span class="path">src/routes/auth.ts</span> <span class="desc">— update login to return JWT</span></li>
+  <li><span class="path">src/tests/auth.test.ts</span> <span class="desc">— update test fixtures</span></li>
+</ul>
+    </div>
+
+    <!-- Permission: install dependency -->
+    <div class="perm-card">
+      <div class="perm-resolved">
+        <span class="icon-ok">✓</span>
+        <span>Allowed: Bash: npm install jsonwebtoken @types/jsonwebtoken</span>
+      </div>
+    </div>
+
+    <!-- Tool: Bash (install) -->
+    <div class="tool-card" onclick="toggleTool(this, event)">
+      <div class="tool-header">
+        <span class="tool-prefix">$</span>
+        <span class="tool-name">Bash</span>
+        <span class="tool-preview">npm install jsonwebtoken @types/jsonwebtoken</span>
+        <span class="tool-status ok">✓</span>
+        <span class="tool-toggle">▸</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input">command: "npm install jsonwebtoken @types/jsonwebtoken"</div>
+        <div class="tool-output">added 12 packages in 2.3s
+
+4 packages are looking for funding
+  run `npm fund` for details</div>
+      </div>
+    </div>
+
+    <!-- Tool: Write (new file) -->
+    <div class="tool-card" onclick="toggleTool(this, event)">
+      <div class="tool-header">
+        <span class="tool-prefix">$</span>
+        <span class="tool-name">Write</span>
+        <span class="tool-preview">src/utils/jwt.ts</span>
+        <span class="tool-status ok">✓</span>
+        <span class="tool-toggle">▸</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input">file_path: "src/utils/jwt.ts"</div>
+        <div class="tool-output"><span class="kw">import</span> jwt <span class="kw">from</span> <span class="str">'jsonwebtoken'</span>;
+
+<span class="kw">const</span> SECRET = process.env.JWT_SECRET || <span class="str">'dev-secret'</span>;
+
+<span class="kw">export function</span> <span class="fn">signToken</span>(payload: <span class="type">TokenPayload</span>): <span class="type">string</span> {
+  <span class="kw">return</span> jwt.sign(payload, SECRET, { expiresIn: <span class="str">'7d'</span> });
+}
+
+<span class="kw">export function</span> <span class="fn">verifyToken</span>(token: <span class="type">string</span>): <span class="type">TokenPayload</span> {
+  <span class="kw">return</span> jwt.verify(token, SECRET) <span class="kw">as</span> <span class="type">TokenPayload</span>;
+}</div>
+      </div>
+    </div>
+
+    <!-- Tool: Edit (rewrite middleware) -->
+    <div class="tool-card" onclick="toggleTool(this, event)">
+      <div class="tool-header">
+        <span class="tool-prefix">$</span>
+        <span class="tool-name">Edit</span>
+        <span class="tool-preview">src/middleware/auth.ts</span>
+        <span class="tool-status ok">✓</span>
+        <span class="tool-toggle">▸</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-input">file_path: "src/middleware/auth.ts"
+old_string: "import { sessionStore } from '../stores/session';\n\nexport function authMiddleware..."
+new_string: "import { verifyToken } from '../utils/jwt';\n\nexport function authMiddleware..."</div>
+      </div>
+    </div>
+
+    <!-- Permission: run tests (pending) -->
+    <div class="perm-card">
+      <div class="perm-pending">
+        <span class="perm-question">Allow <strong>Bash</strong>: npm test -- --grep "auth"?</span>
+        <button class="perm-btn yes" onclick="resolvePerm(this, true)">Y</button>
+        <button class="perm-btn session" onclick="resolvePerm(this, true)">session</button>
+        <button class="perm-btn no" onclick="resolvePerm(this, false)">n</button>
+      </div>
+    </div>
+
+    <!-- Result bar -->
+    <div class="msg msg-result">
+      <span class="rule"></span>
+      <span>$0.042</span>
+      <span class="sep">·</span>
+      <span>12.3K tokens</span>
+      <span class="sep">·</span>
+      <span>3 turns</span>
+      <span class="sep">·</span>
+      <span>4.2s</span>
+      <span class="rule"></span>
+    </div>
+
+    <div class="turn-gap"></div>
+
+    <!-- Turn 2: User -->
+    <div class="msg msg-user"><span class="prompt">❯</span>also add refresh token rotation</div>
+
+    <!-- Thinking (active) -->
+    <div class="msg msg-thinking" onclick="toggleThinking(this)">
+      <span class="tag">[thinking]</span> considering refresh token rotation patterns... <span style="font-style: normal; opacity: 0.3">▸</span>
+    </div>
+    <div class="thinking-body">Refresh token rotation: each time a refresh token is used, issue a new one
+and invalidate the old one. This prevents replay attacks. I'll need:
+- A refresh token store (can use Redis or simple Map for now)
+- A /auth/refresh endpoint
+- Automatic rotation with family tracking for theft detection</div>
+
+    <!-- Assistant streaming -->
+    <div class="msg msg-assistant">I'll implement refresh token rotation with theft detection. This involves creating a token family tracker — if a previously-used refresh token is replayed, the entire family gets invalidated.<span class="cursor-blink">▎</span></div>
+
+    <div class="turn-gap"></div>
+
+    <!-- Error example -->
+    <div class="msg msg-error"><span class="prefix">error:</span> rate limit exceeded — retrying in 12s</div>
+
+    <!-- Status -->
+    <div class="msg msg-status">reconnected · resuming from turn 4</div>
+
+  </div>
+
+  <!-- Input area -->
+  <div class="input-area">
+    <span class="input-prompt">❯</span>
+    <textarea class="input-field" rows="1" placeholder="Type a message..." spellcheck="false" oninput="autoGrow(this)" onkeydown="handleKey(event, this)"></textarea>
+  </div>
+
+  <!-- Usage bars -->
+  <div class="usage-bars">
+    <div class="usage-bar">
+      <span class="usage-label">quota</span>
+      <div class="usage-track">
+        <div class="usage-fill accent" style="width: 34%"></div>
+      </div>
+      <span class="usage-pct">34%</span>
+    </div>
+    <div class="usage-bar">
+      <span class="usage-label">context</span>
+      <div class="usage-track">
+        <div class="usage-fill accent" style="width: 18%"></div>
+      </div>
+      <span class="usage-pct">36k</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Toggle tool card expand/collapse
+  function toggleTool(card, event) {
+    // Only toggle if clicking the header area
+    if (event.target.closest('.tool-body')) return;
+    const body = card.querySelector('.tool-body');
+    const toggle = card.querySelector('.tool-toggle');
+    body.classList.toggle('open');
+    toggle.textContent = body.classList.contains('open') ? '▾' : '▸';
+  }
+
+  // Toggle thinking block
+  function toggleThinking(el) {
+    const body = el.nextElementSibling;
+    if (body && body.classList.contains('thinking-body')) {
+      body.classList.toggle('open');
+      const arrow = el.querySelector('span:last-child');
+      if (arrow) arrow.textContent = body.classList.contains('open') ? '▾' : '▸';
+    }
+  }
+
+  // Resolve permission
+  function resolvePerm(btn, allowed) {
+    const pending = btn.closest('.perm-pending');
+    const card = btn.closest('.perm-card');
+    const question = pending.querySelector('.perm-question');
+    const desc = question.innerHTML.replace(/<\/?strong>/g, '');
+
+    card.innerHTML = `<div class="perm-resolved">
+      <span class="${allowed ? 'icon-ok' : 'icon-deny'}">${allowed ? '✓' : '✗'}</span>
+      <span>${allowed ? 'Allowed' : 'Denied'}: ${desc.replace('Allow ', '').replace('?', '')}</span>
+    </div>`;
+  }
+
+  // Auto-grow textarea
+  function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  // Handle Enter key
+  function handleKey(e, el) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = el.value.trim();
+      if (!text) return;
+
+      // Add user message to output
+      const output = document.getElementById('output');
+      const msg = document.createElement('div');
+      msg.className = 'msg msg-user';
+      msg.innerHTML = `<span class="prompt">❯</span>${escapeHtml(text)}`;
+
+      const gap = document.createElement('div');
+      gap.className = 'turn-gap';
+      output.appendChild(gap);
+      output.appendChild(msg);
+
+      // Fake response
+      setTimeout(() => {
+        const resp = document.createElement('div');
+        resp.className = 'msg msg-assistant';
+        resp.innerHTML = 'Processing your request...<span class="cursor-blink">▎</span>';
+        output.appendChild(resp);
+        output.scrollTop = output.scrollHeight;
+      }, 300);
+
+      el.value = '';
+      el.style.height = 'auto';
+      output.scrollTop = output.scrollHeight;
+    }
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Scroll to bottom on load
+  document.getElementById('output').scrollTop = document.getElementById('output').scrollHeight;
+
+  // Focus input
+  document.querySelector('.input-field').focus();
+</script>
+
+</body>
+</html>

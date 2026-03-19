@@ -1,0 +1,11 @@
+{
+  "name": "anvil-sidecar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "sidecar.js",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.76",
+    "@anthropic-ai/sdk": "^0.52.0"
+  }
+}

@@ -102,7 +102,7 @@ export default memo(function TerminalView(props: SessionViewProps) {
   // Sticky auto-scroll: stay pinned to bottom unless user scrolls up
   const stickyRef = useRef(true);
   const lastScrollTopRef = useRef(0);
-  const lastCtrlCRef = useRef(0);
+
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -124,8 +124,8 @@ export default memo(function TerminalView(props: SessionViewProps) {
   // ── Turn collapsing: hide tool/thinking/permission/status noise from previous turns ──
   // A "turn" starts at each user message. Only the last turn shows full detail.
   // Previous turns keep user + assistant messages, everything else is hidden.
-  const NOISE_ROLES = new Set(["tool", "tool-group", "thinking", "permission", "result"]);
-  const visibleItems = useMemo((): DisplayItem[] => {
+  const { visibleItems, lastToolIdx } = useMemo(() => {
+    const NOISE_ROLES = new Set(["tool", "tool-group", "thinking", "permission", "result"]);
     // Find the last user message index
     let lastUserIdx = -1;
     for (let i = displayItems.length - 1; i >= 0; i--) {
@@ -133,15 +133,15 @@ export default memo(function TerminalView(props: SessionViewProps) {
     }
 
     const result: DisplayItem[] = [];
+    let lastTool = -1;
     for (let i = 0; i < displayItems.length; i++) {
       const item = displayItems[i];
-      // Always hide status messages (the "[] init" / "[] idle" noise)
       if (item.role === "status") continue;
-      // Before the last user message: only show user + assistant + error + separator
       if (i < lastUserIdx && NOISE_ROLES.has(item.role)) continue;
+      if (item.role === "tool" || item.role === "tool-group") lastTool = result.length;
       result.push(item);
     }
-    return result;
+    return { visibleItems: result, lastToolIdx: lastTool };
   }, [displayItems]);
 
   // Auto-scroll (only when sticky)
@@ -163,20 +163,14 @@ export default memo(function TerminalView(props: SessionViewProps) {
     return () => window.removeEventListener("focus", handleWindowFocus);
   }, [isActive]);
 
-  // Keyboard shortcuts — Ctrl+C copies selection or interrupts agent (double = kill)
+  // Keyboard shortcuts — Ctrl+C copies selection or interrupts agent
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.ctrlKey && e.key === "c") {
       // 1. Copy if text selected
       if (window.getSelection()?.toString()) return;
-      // 2. If processing: interrupt (double Ctrl+C within 500ms sends second interrupt to kill)
+      // 2. If processing: interrupt
       if (inputState === "processing") {
-        const now = Date.now();
-        if (now - lastCtrlCRef.current < 500) {
-          handleInterrupt(); // second interrupt forces kill
-        } else {
-          handleInterrupt();
-        }
-        lastCtrlCRef.current = now;
+        handleInterrupt();
         return;
       }
       // 3. If idle — let ChatInput handle clearing (event bubbles from textarea)
@@ -271,15 +265,8 @@ export default memo(function TerminalView(props: SessionViewProps) {
                   return <div className="tv-user"><span className="tv-user-prompt">{"\u276F"}</span>{msg.text}</div>;
                 case "assistant":
                   return <AssistantText text={msg.text} />;
-                case "tool": {
-                  const isLastTool = (() => {
-                    for (let j = virtualRow.index + 1; j < visibleItems.length; j++) {
-                      if (visibleItems[j].role === "tool" || visibleItems[j].role === "tool-group") return false;
-                    }
-                    return true;
-                  })();
-                  return <TermToolLine tool={msg.tool} input={msg.input} output={msg.output} success={msg.success} isLatest={isLastTool} />;
-                }
+                case "tool":
+                  return <TermToolLine tool={msg.tool} input={msg.input} output={msg.output} success={msg.success} isLatest={virtualRow.index === lastToolIdx} />;
                 case "permission":
                   return <TermPermPrompt tool={msg.tool} description={msg.description} suggestions={msg.suggestions} resolved={msg.resolved} allowed={msg.allowed} onRespond={(allow, sugg) => handlePermissionRespond(msg.id, allow, sugg)} />;
                 case "ask":

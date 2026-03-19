@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set "RUST_BIN=C:\Users\%USERNAME%\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin"
+set "RUST_BIN=C:\Users\%USERNAME%\.rustup\toolchains\stable-x86_64-pc-windows-gnu\bin"
 set "CARGO_BIN=C:\Users\%USERNAME%\.cargo\bin"
 set "PATH=%RUST_BIN%;%CARGO_BIN%;%PATH%"
 

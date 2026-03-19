@@ -242,7 +242,7 @@ async function handleCreate(cmd) {
           // Extract questions from the tool input
           const questions = event.input?.questions;
           if (!Array.isArray(questions) || questions.length === 0) {
-            return { behavior: "allow", updatedInput: {} };
+            return { behavior: "deny", message: "No questions provided" };
           }
 
           // Emit ask_user event to frontend

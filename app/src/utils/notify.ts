@@ -43,10 +43,10 @@ export async function notifyAttention(title: string, body: string, force = false
   if (!force) {
     try {
       const focused = await appWindow.isFocused();
-      if (focused) return;
+      if (focused) { lastNotifyTime = 0; return; } // release slot — no notification sent
     } catch (err) {
       console.debug("[notify] isFocused failed, falling back to document.hasFocus:", err);
-      if (document.hasFocus()) return;
+      if (document.hasFocus()) { lastNotifyTime = 0; return; }
     }
   }
 

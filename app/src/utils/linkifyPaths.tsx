@@ -1,12 +1,26 @@
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 
-// Match Windows absolute paths (D:\..., D:/...) and relative paths (.\..., ..\...)
-// Must contain at least one path separator after the prefix and end at whitespace/quote/paren/EOL
-const PATH_RE = /(?:[A-Za-z]:[/\\]|\.{1,2}[/\\])[\w./\\:@-]+/g;
+// Match Windows absolute paths (D:\..., D:/...) only — no relative paths (too many false positives)
+// Excludes colons from the character class to prevent NTFS ADS matches
+const PATH_RE = /(?:[A-Za-z]:[/\\])[\w./\\@-]+/g;
+
+// Block executable/script extensions from being opened via shellOpen
+const DANGEROUS_EXT = /\.(exe|bat|cmd|com|ps1|vbs|vbe|js|jse|wsf|wsh|msi|scr|pif|hta|cpl|inf|reg|lnk)$/i;
+
+// Block paths with traversal components
+const HAS_TRAVERSAL = /(?:^|[/\\])\.\.[/\\]/;
 
 function handlePathClick(e: React.MouseEvent, path: string) {
   e.preventDefault();
   e.stopPropagation();
+  if (DANGEROUS_EXT.test(path)) {
+    console.warn("[linkify] blocked opening executable path:", path);
+    return;
+  }
+  if (HAS_TRAVERSAL.test(path)) {
+    console.warn("[linkify] blocked path with traversal:", path);
+    return;
+  }
   shellOpen(path).catch((err) => console.debug("[linkify] open failed:", err));
 }
 

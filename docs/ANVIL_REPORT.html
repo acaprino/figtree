@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anvil -- App Analysis Report</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --surface: #313244;
+    --mantle: #181825;
+    --crust: #11111b;
+    --text: #cdd6f4;
+    --text-dim: #6c7086;
+    --accent: #89b4fa;
+    --red: #f38ba8;
+    --green: #a6e3a1;
+    --yellow: #f9e2af;
+    --overlay0: #6c7086;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+  h1, h2, h3 { color: var(--accent); font-weight: 600; }
+  h1 { font-size: 28px; margin-bottom: 8px; border-bottom: 2px solid var(--accent); padding-bottom: 8px; }
+  h2 { font-size: 20px; margin: 40px 0 16px; }
+  h3 { font-size: 16px; margin: 24px 0 12px; color: var(--text); }
+  .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+  p { margin-bottom: 12px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: var(--crust);
+    padding: 2px 6px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: var(--crust);
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 13px;
+    margin: 12px 0;
+    border-left: 3px solid var(--accent);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 24px;
+    font-size: 14px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--overlay0) 30%, transparent);
+  }
+  th { color: var(--accent); font-weight: 600; background: var(--surface); }
+  tr:hover td { background: color-mix(in srgb, var(--text) 3%, transparent); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--overlay0) 30%, transparent);
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .card h3 { margin-top: 0; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .badge.green { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+  .badge.yellow { background: color-mix(in srgb, var(--yellow) 15%, transparent); color: var(--yellow); }
+  .badge.red { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+  .badge.blue { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    padding: 16px;
+    text-align: center;
+    border: 1px solid color-mix(in srgb, var(--overlay0) 20%, transparent);
+  }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .theme-card {
+    padding: 12px;
+    font-size: 13px;
+    border: 1px solid color-mix(in srgb, var(--overlay0) 30%, transparent);
+  }
+  .theme-card .name { font-weight: 600; margin-bottom: 6px; }
+  .theme-card .swatches { display: flex; gap: 4px; height: 8px; margin-top: 8px; }
+  .theme-card .swatches span { flex: 1; }
+
+  .screen-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  @media (max-width: 700px) { .screen-grid { grid-template-columns: 1fr; } }
+  .screen-card {
+    background: var(--surface);
+    border: 1px solid color-mix(in srgb, var(--overlay0) 20%, transparent);
+    padding: 12px;
+  }
+  .screen-card .screen-title {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .screen-card .screen-depth {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .screen-card .screen-desc { font-size: 13px; color: var(--text-dim); }
+  .screen-card .screen-elements { font-size: 12px; color: var(--overlay0); margin-top: 8px; }
+
+  .flow-step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+  }
+  .flow-num {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--crust);
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .flow-arrow { color: var(--text-dim); }
+
+  .section-divider {
+    border: none;
+    border-top: 1px solid color-mix(in srgb, var(--overlay0) 20%, transparent);
+    margin: 40px 0;
+  }
+
+  .shortcut-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+  }
+  .shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px;
+    font-size: 13px;
+  }
+  .shortcut-item kbd {
+    background: var(--crust);
+    padding: 2px 6px;
+    font-family: 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  .token-list { list-style: none; }
+  .token-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--overlay0) 10%, transparent);
+    font-size: 13px;
+  }
+  .token-name { font-family: monospace; color: var(--accent); min-width: 160px; }
+  .token-value { color: var(--text-dim); }
+  .token-swatch {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border: 1px solid color-mix(in srgb, var(--overlay0) 30%, transparent);
+  }
+
+  .rating { display: flex; gap: 2px; }
+  .rating .dot { width: 10px; height: 10px; background: var(--surface); }
+  .rating .dot.filled { background: var(--accent); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid color-mix(in srgb, var(--overlay0) 20%, transparent);
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Anvil</h1>
+<div class="subtitle">AI Code Session Launcher -- Competitive Intelligence Report | March 18, 2026</div>
+
+<!-- Key Metrics -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-value">16</div>
+    <div class="stat-label">Screens</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">112</div>
+    <div class="stat-label">Interactive Elements</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">14</div>
+    <div class="stat-label">Themes</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">40+</div>
+    <div class="stat-label">Keyboard Shortcuts</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">3</div>
+    <div class="stat-label">Max Click Depth</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- Tech Stack -->
+<h2>Tech Stack</h2>
+<table>
+  <tr><th>Layer</th><th>Technology</th><th>Notes</th></tr>
+  <tr><td>Desktop</td><td>Tauri 2 (Rust)</td><td>Frameless window, Win32 Job Object for process cleanup</td></tr>
+  <tr><td>Frontend</td><td>React 19 + TypeScript 5 + Vite 6</td><td>React.memo everywhere, @tanstack/react-virtual</td></tr>
+  <tr><td>Sidecar</td><td>Node.js (Agent SDK)</td><td>JSON-lines IPC over stdin/stdout</td></tr>
+  <tr><td>Components</td><td>Radix UI Primitives</td><td>Dialog, ContextMenu, Switch, Collapsible, ScrollArea</td></tr>
+  <tr><td>Markdown</td><td>react-markdown + remark-gfm</td><td>PrismLight syntax highlighting (21 languages)</td></tr>
+  <tr><td>State</td><td>React hooks + Context</td><td>No Redux/Zustand -- lean hook-based architecture</td></tr>
+</table>
+
+<hr class="section-divider">
+
+<!-- Design System -->
+<h2>Design System</h2>
+
+<h3>Color Tokens</h3>
+<ul class="token-list">
+  <li><span class="token-swatch" style="background: #1e1e2e"></span><span class="token-name">--bg</span><span class="token-value">#1e1e2e -- Base background</span></li>
+  <li><span class="token-swatch" style="background: #313244"></span><span class="token-name">--surface</span><span class="token-value">#313244 -- Elevated surfaces</span></li>
+  <li><span class="token-swatch" style="background: #181825"></span><span class="token-name">--mantle</span><span class="token-value">#181825 -- Below background</span></li>
+  <li><span class="token-swatch" style="background: #11111b"></span><span class="token-name">--crust</span><span class="token-value">#11111b -- Deepest level</span></li>
+  <li><span class="token-swatch" style="background: #cdd6f4"></span><span class="token-name">--text</span><span class="token-value">#cdd6f4 -- Primary text</span></li>
+  <li><span class="token-swatch" style="background: #6c7086"></span><span class="token-name">--text-dim</span><span class="token-value">#6c7086 -- Muted text</span></li>
+  <li><span class="token-swatch" style="background: #89b4fa"></span><span class="token-name">--accent</span><span class="token-value">#89b4fa -- Primary action</span></li>
+  <li><span class="token-swatch" style="background: #f38ba8"></span><span class="token-name">--red</span><span class="token-value">#f38ba8 -- Error/destructive</span></li>
+  <li><span class="token-swatch" style="background: #a6e3a1"></span><span class="token-name">--green</span><span class="token-value">#a6e3a1 -- Success</span></li>
+  <li><span class="token-swatch" style="background: #f9e2af"></span><span class="token-name">--yellow</span><span class="token-value">#f9e2af -- Warning/pending</span></li>
+</ul>
+
+<h3>Typography</h3>
+<table>
+  <tr><th>Token</th><th>Size</th><th>Usage</th></tr>
+  <tr><td><code>--text-2xs</code></td><td>11px</td><td>Smallest labels</td></tr>
+  <tr><td><code>--text-xs</code></td><td>12px</td><td>Tool status, badges</td></tr>
+  <tr><td><code>--text-sm</code></td><td>13px</td><td>Secondary content</td></tr>
+  <tr><td><code>--text-base</code></td><td>14px</td><td>Body text</td></tr>
+  <tr><td><code>--text-md</code></td><td>15px</td><td>Emphasized text</td></tr>
+  <tr><td><code>--text-lg</code></td><td>16px</td><td>Modal titles</td></tr>
+  <tr><td><code>--text-xl</code></td><td>18px</td><td>Page headers</td></tr>
+</table>
+<p><strong>Terminal font stack</strong>: Cascadia Code, JetBrains Mono, Fira Code, Consolas, monospace</p>
+<p><strong>UI/Chat font stack</strong>: Segoe UI, Inter, system-ui, sans-serif</p>
+
+<h3>Spacing Scale (4px base)</h3>
+<table>
+  <tr><th>Token</th><th>Value</th></tr>
+  <tr><td><code>--space-0</code></td><td>2px</td></tr>
+  <tr><td><code>--space-1</code></td><td>4px</td></tr>
+  <tr><td><code>--space-2</code></td><td>8px</td></tr>
+  <tr><td><code>--space-3</code></td><td>12px</td></tr>
+  <tr><td><code>--space-4</code></td><td>16px</td></tr>
+  <tr><td><code>--space-6</code></td><td>24px</td></tr>
+  <tr><td><code>--space-8</code></td><td>32px</td></tr>
+  <tr><td><code>--space-12</code></td><td>48px</td></tr>
+</table>
+
+<h3>CSS Architecture</h3>
+<div class="card">
+  <p><strong>Key principle</strong>: All opacity variants use <code>color-mix(in srgb, var(--token) N%, transparent)</code> -- zero hardcoded rgba values. This ensures every color automatically adapts when themes change.</p>
+  <p><strong>Transitions</strong>: 150ms ease-out on structural containers for smooth theme crossfade. Retro mode disables all transitions.</p>
+  <p><strong>Border radius</strong>: <code>--radius-sm</code> (4px), <code>--radius-md</code> (6px). Retro mode sets both to 0px.</p>
+  <p><strong>Active states</strong>: <code>transform: scale(0.97)</code> pressed effect on buttons.</p>
+  <p><strong>Focus states</strong>: <code>outline: 2px solid var(--accent); outline-offset: 2px</code>.</p>
+</div>
+
+<hr class="section-divider">
+
+<!-- Themes -->
+<h2>Theme Gallery (14 Themes)</h2>
+<div class="theme-grid">
+  <div class="theme-card" style="background: #141010; color: #c8b890;">
+    <div class="name">Anvil [retro]</div>
+    <div>Warm earth tones, Consolas</div>
+    <div class="swatches">
+      <span style="background: #221c18"></span>
+      <span style="background: #b8a878"></span>
+      <span style="background: #78a060"></span>
+      <span style="background: #b85040"></span>
+      <span style="background: #c8a848"></span>
+    </div>
+  </div>
+  <div class="theme-card" style="background: #1a1c28; color: #f0f0e8;">
+    <div class="name">Dracula</div>
+    <div>Purple accent, Fira Code</div>
+    <div class="swatches">
+      <span style="background: #282a36"></span>
+      <span style="background: #bd93f9"></span>
+      <span style="background: #50fa7b"></span>
+      <span style="background: #ff5555"></span>
+      <span style="background: #f1fa8c"></span>
+    </div>
+  </div>
+  <div class="theme-card" style="background: #0a0a0a; color: #00ff41;">
+    <div class="name">Matrix [retro]</div>
+    <div>Green-on-black CRT</div>
+    <div class="swatches">
+      <span style="background: #0f1a0f"></span>
+      <span style="background: #00ff41"></span>
+      <span style="background: #00ff41"></span>
+      <span style="background: #ff0040"></span>
+      <span style="background: #80ff00"></span>
+    </div>
+  </div>
+  <div class="theme-card" style="background: #f5f2ed; color: #2c2820;">
+    <div class="name">Paper</div>
+    <div>Warm beige, burnt orange</div>
+    <div class="swatches">
+      <span style="background: #e8e4de"></span>
+      <span style="background: #c05820"></span>
+      <span style="background: #3a7830"></span>
+      <span style="background: #c03030"></span>
+      <span style="background: #a07010"></span>
+    </div>
+  </div>
+</div>
+<p style="color: var(--text-dim); font-size: 13px;">Also: Anvil Forge [retro], Tokyo Night, Nord, Kanagawa, Synthwave, Cyberpunk 2077, Lofi, Arctic, Sakura, Solarized Light</p>
+
+<hr class="section-divider">
+
+<!-- Screen Map -->
+<h2>Screen Map (16 Screens)</h2>
+
+<div class="screen-grid">
+  <div class="screen-card">
+    <div class="screen-title">New Tab Page (Project Picker)</div>
+    <div class="screen-depth"><span class="badge blue">ROOT</span> 0 clicks</div>
+    <div class="screen-desc">Default landing. Project list + session config (model/effort/permissions). Type-to-filter, keyboard-driven selection.</div>
+    <div class="screen-elements">18 interactive elements | 13 keyboard shortcuts</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Agent Session -- Terminal View</div>
+    <div class="screen-depth"><span class="badge green">CORE</span> 1 click</div>
+    <div class="screen-desc">Primary interaction. Virtualized message log with tool calls, permissions, thinking blocks. xterm-style output.</div>
+    <div class="screen-elements">9 interactive elements | 6 shortcuts</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Agent Session -- Chat View</div>
+    <div class="screen-depth"><span class="badge green">CORE</span> 1 click</div>
+    <div class="screen-desc">Alternative rendering. Markdown with syntax highlighting, copy buttons, sans-serif font. Same data as Terminal.</div>
+    <div class="screen-elements">9 interactive elements | 6 shortcuts</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Settings Modal</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">4 sections: Appearance (14 themes), Fonts (2x family+size), Directories, Behavior (7 toggles).</div>
+    <div class="screen-elements">33 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">System Prompts Page</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">Manage system prompts. Toggle active/inactive, create/edit/delete. Inline editor with Ctrl+Enter save.</div>
+    <div class="screen-elements">4 interactive elements per prompt</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Session Panel (Side)</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">Slide-in panel scoped to active project. Resume/fork sessions with right-click context menu.</div>
+    <div class="screen-elements">8 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Sessions Browser (Full Page)</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">All sessions across projects. Tabular list with date, project, summary. Keyboard nav + type-to-filter.</div>
+    <div class="screen-elements">6 keyboard shortcuts</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Right Sidebar (5 tabs)</div>
+    <div class="screen-depth">2 clicks</div>
+    <div class="screen-desc">Bookmarks, Minimap, Todos, Thinking, Agents -- resizable sidebar within agent sessions.</div>
+    <div class="screen-elements">5 tab buttons + per-panel content</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">About Page</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">ASCII art logo, version info, shortcuts reference, system status. Read-only.</div>
+    <div class="screen-elements">0 interactive (informational)</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Usage Page (Token Stats)</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">7-day token usage: totals, per-model, per-project, daily ASCII bar chart.</div>
+    <div class="screen-elements">0 interactive (informational)</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Quick Launch Modal</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">Arbitrary directory launch with folder tree browser and "add to projects" option.</div>
+    <div class="screen-elements">5 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Create Project Modal</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">New project creation with name, parent dir, folder tree, git init checkbox.</div>
+    <div class="screen-elements">6 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Label Project Modal</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">Simple input for custom display name on projects.</div>
+    <div class="screen-elements">3 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Shortcuts Overlay</div>
+    <div class="screen-depth">1 click</div>
+    <div class="screen-desc">Full-screen overlay with 4-section shortcuts grid. F1 toggle.</div>
+    <div class="screen-elements">0 interactive (informational)</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Prompt Editor (Create)</div>
+    <div class="screen-depth">2 clicks</div>
+    <div class="screen-desc">Inline editor for new system prompt. Name + description + content fields.</div>
+    <div class="screen-elements">5 interactive elements</div>
+  </div>
+  <div class="screen-card">
+    <div class="screen-title">Prompt Editor (Edit)</div>
+    <div class="screen-depth"><span class="badge yellow">DEEPEST</span> 3 clicks</div>
+    <div class="screen-desc">Pre-populated editor for existing prompts. Supports rename with slug tracking.</div>
+    <div class="screen-elements">5 interactive elements</div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- Key User Flows -->
+<h2>Key User Flows</h2>
+
+<h3>Launch Agent Session (1 click)</h3>
+<div class="flow-step"><div class="flow-num">1</div><span>New Tab Page: Select project, configure model/effort/perms</span></div>
+<div class="flow-step"><div class="flow-num">2</div><span>Press Enter -- agent session starts in terminal or chat view</span></div>
+
+<h3>Resume Previous Session (2 clicks)</h3>
+<div class="flow-step"><div class="flow-num">1</div><span>Ctrl+Shift+S: Open session panel</span></div>
+<div class="flow-step"><div class="flow-num">2</div><span>Click or Enter on a session to resume</span></div>
+
+<h3>Change Theme (2 clicks)</h3>
+<div class="flow-step"><div class="flow-num">1</div><span>Ctrl+,: Open settings modal</span></div>
+<div class="flow-step"><div class="flow-num">2</div><span>Click theme preview card -- instant application with 150ms crossfade</span></div>
+
+<h3>Create System Prompt (3 clicks)</h3>
+<div class="flow-step"><div class="flow-num">1</div><span>Ctrl+Shift+P: Open system prompts page</span></div>
+<div class="flow-step"><div class="flow-num">2</div><span>Click "+ New Prompt" button</span></div>
+<div class="flow-step"><div class="flow-num">3</div><span>Fill name + content, Ctrl+Enter to save</span></div>
+
+<hr class="section-divider">
+
+<!-- Psychology & Engagement -->
+<h2>Psychology & Engagement</h2>
+
+<div class="card">
+  <h3>Power User Identity</h3>
+  <p>40+ keyboard shortcuts, retro/hacker themes (Matrix, Cyberpunk), terminal-first view mode, zero onboarding -- signals "this app is for expert developers".</p>
+</div>
+
+<div class="card">
+  <h3>Investment & Lock-in</h3>
+  <p>Session persistence (resume/fork), custom system prompts, project labels, per-project usage stats -- users accumulate personalization that increases switching cost.</p>
+</div>
+
+<div class="card">
+  <h3>Transparency & Trust</h3>
+  <p>Real-time cost display ($0.XXX per session), context window meter, rate limit indicator, full token breakdowns -- builds trust through radical cost visibility.</p>
+</div>
+
+<div class="card">
+  <h3>Autonomy Spectrum</h3>
+  <p>Three permission modes (plan / accept edits / skip all) + security gate toggle -- gives users precise control over AI autonomy level.</p>
+</div>
+
+<hr class="section-divider">
+
+<!-- SWOT -->
+<h2>SWOT Analysis</h2>
+
+<table>
+  <tr><th><span class="badge green">Strengths</span></th><th><span class="badge red">Weaknesses</span></th></tr>
+  <tr>
+    <td>
+      <ul style="padding-left: 16px;">
+        <li>Native Tauri 2 performance (not Electron)</li>
+        <li>Keyboard-first UX (40+ shortcuts)</li>
+        <li>14 themes including unique retro aesthetics</li>
+        <li>Dual view: Terminal + Chat</li>
+        <li>Session resume/fork -- zero work loss</li>
+        <li>Real-time cost & context tracking</li>
+        <li>Plugin marketplace via skills</li>
+      </ul>
+    </td>
+    <td>
+      <ul style="padding-left: 16px;">
+        <li>Windows-only (no macOS/Linux)</li>
+        <li>No onboarding -- steep learning curve</li>
+        <li>No automated tests</li>
+        <li>Single AI provider (Claude only)</li>
+        <li>Session transcript viewer is TODO</li>
+        <li>No collaborative features</li>
+      </ul>
+    </td>
+  </tr>
+  <tr><th><span class="badge blue">Opportunities</span></th><th><span class="badge yellow">Threats</span></th></tr>
+  <tr>
+    <td>
+      <ul style="padding-left: 16px;">
+        <li>Cross-platform (Tauri 2 supports it)</li>
+        <li>Multi-provider support</li>
+        <li>Session sharing/export</li>
+        <li>Inline diff viewer for code changes</li>
+        <li>Git-aware session management</li>
+        <li>Project templates</li>
+      </ul>
+    </td>
+    <td>
+      <ul style="padding-left: 16px;">
+        <li>Claude Code CLI improving natively</li>
+        <li>VS Code AI extensions growing</li>
+        <li>Cursor and AI-native IDEs</li>
+        <li>Possible API pricing changes</li>
+      </ul>
+    </td>
+  </tr>
+</table>
+
+<hr class="section-divider">
+
+<!-- Keyboard Shortcuts Reference -->
+<h2>Keyboard Shortcuts (Complete)</h2>
+
+<h3>Global</h3>
+<div class="shortcut-grid">
+  <div class="shortcut-item"><kbd>Ctrl+T</kbd> <span>New tab</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+F4</kbd> <span>Close tab</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+Tab</kbd> <span>Next tab</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+Shift+Tab</kbd> <span>Previous tab</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+1..9</kbd> <span>Jump to tab</span></div>
+  <div class="shortcut-item"><kbd>F1</kbd> <span>Shortcuts overlay</span></div>
+  <div class="shortcut-item"><kbd>F12</kbd> <span>About page</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+U</kbd> <span>Usage stats</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+Shift+P</kbd> <span>System prompts</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+Shift+H</kbd> <span>Sessions browser</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+Shift+S</kbd> <span>Session panel</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+,</kbd> <span>Settings</span></div>
+</div>
+
+<h3>Project Picker</h3>
+<div class="shortcut-grid">
+  <div class="shortcut-item"><kbd>Enter</kbd> <span>Launch project</span></div>
+  <div class="shortcut-item"><kbd>Tab</kbd> <span>Cycle perm mode</span></div>
+  <div class="shortcut-item"><kbd>F2</kbd> <span>Cycle effort</span></div>
+  <div class="shortcut-item"><kbd>F3</kbd> <span>Cycle sort</span></div>
+  <div class="shortcut-item"><kbd>F4</kbd> <span>Cycle model</span></div>
+  <div class="shortcut-item"><kbd>F5</kbd> <span>New project</span></div>
+  <div class="shortcut-item"><kbd>F6</kbd> <span>Open in Explorer</span></div>
+  <div class="shortcut-item"><kbd>F8</kbd> <span>Label project</span></div>
+  <div class="shortcut-item"><kbd>F10</kbd> <span>Quick launch</span></div>
+  <div class="shortcut-item"><kbd>Type</kbd> <span>Filter projects</span></div>
+  <div class="shortcut-item"><kbd>Esc</kbd> <span>Clear / close</span></div>
+</div>
+
+<h3>Agent Session</h3>
+<div class="shortcut-grid">
+  <div class="shortcut-item"><kbd>Enter</kbd> <span>Submit message</span></div>
+  <div class="shortcut-item"><kbd>Shift+Enter</kbd> <span>New line</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+C</kbd> <span>Copy / interrupt</span></div>
+  <div class="shortcut-item"><kbd>Ctrl+B</kbd> <span>Toggle sidebar</span></div>
+  <div class="shortcut-item"><kbd>Y / N / A</kbd> <span>Permission response</span></div>
+  <div class="shortcut-item"><kbd>/</kbd> <span>Slash commands</span></div>
+  <div class="shortcut-item"><kbd>@</kbd> <span>Agent mentions</span></div>
+</div>
+
+<footer>
+  Generated by app-analyzer | Static source analysis of Anvil codebase at D:\Projects\anvil<br>
+  Analysis date: March 18, 2026
+</footer>
+
+</body>
+</html>

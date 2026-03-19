@@ -1,0 +1,53 @@
+[2026-03-19 19:56:40.284] === Anvil started ===
+[2026-03-19 19:56:40.284] Log file: D:\Projects\anvil\exec\anvil.log
+[2026-03-19 19:56:40.285] [INFO] Anvil version: 1.0.0
+[2026-03-19 19:56:40.289] [INFO] Data directory: C:\Users\alfio\AppData\Local\anvil
+[2026-03-19 19:56:40.289] [INFO] Initializing sidecar manager
+[2026-03-19 19:56:40.291] [INFO] sidecar: found node at C:\Program Files\nodejs\node.exe
+[2026-03-19 19:56:40.291] [INFO] sidecar: node_modules already present
+[2026-03-19 19:56:40.291] [INFO] sidecar: script at D:\Projects\anvil\exec\sidecar\sidecar.js
+[2026-03-19 19:56:40.299] [INFO] sidecar: process assigned to job object
+[2026-03-19 19:56:40.300] [INFO] sidecar: started successfully
+[2026-03-19 19:56:40.300] [INFO] Starting Tauri application
+[2026-03-19 19:56:40.522] [INFO] sidecar stderr: [sidecar] Anvil sidecar started
+[2026-03-19 19:56:40.523] [INFO] sidecar: ready signal received
+[2026-03-19 19:56:40.996] [INFO] setup: loading initial settings
+[2026-03-19 19:56:40.996] [INFO] projects: loaded settings from C:\Users\alfio\AppData\Local\anvil\anvil-settings.json
+[2026-03-19 19:56:40.996] [INFO] setup: project_dirs=["D:\\Projects"], single_project_dirs=["D:\\alfios_vault\\.obsidian\\plugins\\obsidian-plugin-homepage", "C:\\Users\\alfio\\Desktop\\Tri-Tech TIA"]
+[2026-03-19 19:56:40.997] [INFO] watcher: watching 3 directories
+[2026-03-19 19:56:40.998] [INFO] setup: complete
+[2026-03-19 19:56:41.126] [INFO] load_session
+[2026-03-19 19:56:41.126] [INFO] prompts: loading from D:\Projects\anvil\exec\data\prompts
+[2026-03-19 19:56:41.126] [INFO] marketplace: found 28 bundled plugins
+[2026-03-19 19:56:41.126] [INFO] projects: loaded session (426 bytes) from C:\Users\alfio\AppData\Local\anvil\anvil-session.json
+[2026-03-19 19:56:41.127] [INFO] load_settings
+[2026-03-19 19:56:41.127] [INFO] prompts: loaded 3 prompts
+[2026-03-19 19:56:41.127] [INFO] themes: loading from D:\Projects\anvil\app\src-tauri\data\themes
+[2026-03-19 19:56:41.127] [INFO] projects: loaded settings from C:\Users\alfio\AppData\Local\anvil\anvil-settings.json
+[2026-03-19 19:56:41.129] [INFO] themes: loaded 14 themes
+[2026-03-19 19:56:41.156] [INFO] scan_projects: dirs=["D:\\Projects"], single=["D:\\alfios_vault\\.obsidian\\plugins\\obsidian-plugin-homepage", "C:\\Users\\alfio\\Desktop\\Tri-Tech TIA"]
+[2026-03-19 19:56:41.156] [INFO] projects: scanning 1 container dirs, 2 single dirs
+[2026-03-19 19:56:41.202] [INFO] spawn_agent: tab=fd51d486-baf8-4bf7-9fd1-a9a49aaa5f2d, project=D:\Projects\sito-web-tri-tech, model=claude-opus-4-6[1m]
+[2026-03-19 19:56:41.204] [INFO] spawn_agent: tab=33370bfc-1086-4c7a-8062-9bfd461363d8, project=C:\Users\alfio\Desktop\Tri-Tech TIA, model=claude-opus-4-6[1m]
+[2026-03-19 19:56:41.619] [INFO] projects: scan complete — 23 projects found in 463ms
+[2026-03-19 19:56:41.620] [INFO] scan_projects: found 23 projects
+[2026-03-19 19:56:41.703] [INFO] save_session
+[2026-03-19 19:56:41.705] [DEBUG] projects: saved session (426 bytes)
+[2026-03-19 19:57:19.317] [INFO] agent_resume: tab=fd51d486-baf8-4bf7-9fd1-a9a49aaa5f2d, session=6446d80f-a5ea-4f86-8842-064bc66898fb
+[2026-03-19 19:57:19.318] [INFO] sidecar stderr: [sidecar] Replacing existing session for tab fd51d486-baf8-4bf7-9fd1-a9a49aaa5f2d
+[2026-03-19 19:57:42.368] [INFO] agent_resume: tab=33370bfc-1086-4c7a-8062-9bfd461363d8, session=d5756584-019c-4523-a160-0fab48d1125c
+[2026-03-19 19:57:42.370] [INFO] sidecar stderr: [sidecar] Replacing existing session for tab 33370bfc-1086-4c7a-8062-9bfd461363d8
+[2026-03-19 20:58:03.455] [INFO] watcher: directory change detected, emitting projects-changed
+[2026-03-19 20:58:03.467] [INFO] scan_projects: dirs=["D:\\Projects"], single=["D:\\alfios_vault\\.obsidian\\plugins\\obsidian-plugin-homepage", "C:\\Users\\alfio\\Desktop\\Tri-Tech TIA"]
+[2026-03-19 20:58:03.468] [INFO] projects: scanning 1 container dirs, 2 single dirs
+[2026-03-19 20:58:03.850] [INFO] projects: scan complete — 23 projects found in 382ms
+[2026-03-19 20:58:03.850] [INFO] scan_projects: found 23 projects
+[2026-03-19 20:58:24.933] [INFO] watcher: directory change detected, emitting projects-changed
+[2026-03-19 20:58:24.935] [INFO] scan_projects: dirs=["D:\\Projects"], single=["D:\\alfios_vault\\.obsidian\\plugins\\obsidian-plugin-homepage", "C:\\Users\\alfio\\Desktop\\Tri-Tech TIA"]
+[2026-03-19 20:58:24.935] [INFO] projects: scanning 1 container dirs, 2 single dirs
+[2026-03-19 20:58:25.346] [INFO] projects: scan complete — 23 projects found in 411ms
+[2026-03-19 20:58:25.346] [INFO] scan_projects: found 23 projects
+[2026-03-19 21:23:02.418] [INFO] Main window close requested — shutting down
+[2026-03-19 21:23:02.418] [INFO] sidecar: shutting down
+[2026-03-19 21:23:02.418] [INFO] sidecar: terminating job object (kills process tree)
+[2026-03-19 21:23:02.422] [WARN] sidecar: stdout reader thread exiting — marking unavailable

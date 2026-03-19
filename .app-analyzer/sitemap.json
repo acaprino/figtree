@@ -1,0 +1,570 @@
+{
+  "meta": {
+    "platform": "desktop",
+    "app_name": "Anvil",
+    "app_path": "D:\\Projects\\anvil",
+    "framework": "Tauri 2 + React 19 + TypeScript 5",
+    "explored_at": "2026-03-18T00:00:00Z",
+    "exploration_method": "static-source-analysis",
+    "total_screens": 16,
+    "total_actions": 112,
+    "avg_clicks_to_reach_any_screen": 1.5,
+    "max_clicks_to_reach_any_screen": 3,
+    "deepest_screen": {
+      "id": "screen_016",
+      "title": "System Prompt Editor (Edit)",
+      "min_clicks": 3
+    }
+  },
+  "screens": {
+    "screen_001": {
+      "id": "screen_001",
+      "title": "New Tab Page (Project Picker)",
+      "component": "NewTabPage.tsx",
+      "depth": 0,
+      "min_clicks_from_root": 0,
+      "path_from_root": [],
+      "reached_via": "root (default tab on launch)",
+      "description": "The default landing screen showing a project list, session configuration bar, and info strip. Users select a project and configure model/effort/permissions before launching an agent session.",
+      "elements": [
+        { "type": "segmented_control", "label": "Model selector (sonnet/opus/haiku/sonnet 1M/opus 1M)", "leads_to": null },
+        { "type": "segmented_control", "label": "Effort selector (high/medium/low)", "leads_to": null },
+        { "type": "segmented_control", "label": "Permission mode (plan/accept edits/skip all)", "leads_to": null },
+        { "type": "toggle", "label": "Autocompact toggle", "leads_to": null },
+        { "type": "card", "label": "Project item (clickable list)", "leads_to": "screen_007" },
+        { "type": "icon_button", "label": "Quick Launch (F10)", "leads_to": "screen_006" },
+        { "type": "icon_button", "label": "System Prompts (Ctrl+Shift+P)", "leads_to": "screen_004" },
+        { "type": "icon_button", "label": "Settings gear (Ctrl+,)", "leads_to": "screen_005" },
+        { "type": "nav_item", "label": "Sessions button (tab bar)", "leads_to": "screen_010" },
+        { "type": "nav_item", "label": "Usage button (tab bar)", "leads_to": "screen_003" },
+        { "type": "nav_item", "label": "About button (tab bar)", "leads_to": "screen_002" },
+        { "type": "button", "label": "New Tab (+)", "leads_to": "screen_001" },
+        { "type": "button", "label": "Minimize window", "leads_to": null },
+        { "type": "button", "label": "Maximize window", "leads_to": null },
+        { "type": "button", "label": "Close window", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 18,
+        "segmented_controls": 3,
+        "toggles": 1,
+        "cards": 1,
+        "icon_buttons": 3,
+        "nav_items": 3,
+        "buttons": 4,
+        "links": 0,
+        "form_fields": 0
+      },
+      "keyboard_shortcuts": [
+        "Tab: Cycle permission mode",
+        "F2: Cycle effort",
+        "F3: Cycle sort order",
+        "F4: Cycle model",
+        "F5: Create project modal",
+        "F6: Open in Explorer",
+        "F8: Label project modal",
+        "F10: Quick launch modal",
+        "Ctrl+,: Settings modal",
+        "Enter: Launch selected project",
+        "Esc: Clear filter / close tab",
+        "Type: Filter projects",
+        "Arrow keys / PageUp / PageDown / Home / End: Navigate project list"
+      ]
+    },
+    "screen_002": {
+      "id": "screen_002",
+      "title": "About Page",
+      "component": "AboutPage.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "F12 or About icon button in tab bar",
+      "description": "Full-screen singleton tab showing ASCII art logo, version info, keyboard shortcuts reference, and system status (available models, themes, tools).",
+      "elements": [
+        { "type": "informational", "label": "ASCII Logo", "leads_to": null },
+        { "type": "informational", "label": "Version / platform info", "leads_to": null },
+        { "type": "informational", "label": "Shortcuts reference", "leads_to": null },
+        { "type": "informational", "label": "Status box (tools, models, themes)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 0,
+        "informational": 4
+      },
+      "keyboard_shortcuts": ["Esc / F12: Close"]
+    },
+    "screen_003": {
+      "id": "screen_003",
+      "title": "Usage Page (Token Stats)",
+      "component": "UsagePage.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Ctrl+U or Usage icon in tab bar",
+      "description": "Full-screen singleton tab showing 7-day token usage statistics: totals, per-model breakdown, per-project breakdown, and a daily bar chart.",
+      "elements": [
+        { "type": "informational", "label": "Totals box (tokens, sessions, cost)", "leads_to": null },
+        { "type": "informational", "label": "By Model table", "leads_to": null },
+        { "type": "informational", "label": "By Project table", "leads_to": null },
+        { "type": "informational", "label": "7-day chart (ASCII bar chart)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 0,
+        "informational": 4
+      },
+      "keyboard_shortcuts": ["Esc / Ctrl+U: Close"]
+    },
+    "screen_004": {
+      "id": "screen_004",
+      "title": "System Prompts Page",
+      "component": "SystemPromptPage.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Ctrl+Shift+P or pencil icon in info strip",
+      "description": "Full-screen singleton tab for managing system prompts. Lists all prompts with toggle (active/inactive), edit, and delete actions. Includes an inline editor for creating/editing prompts.",
+      "elements": [
+        { "type": "toggle", "label": "Prompt active toggle [x] / [ ]", "leads_to": null },
+        { "type": "button", "label": "Edit prompt", "leads_to": "screen_016" },
+        { "type": "button", "label": "Delete prompt (destructive)", "leads_to": null },
+        { "type": "button", "label": "+ New Prompt", "leads_to": "screen_015" },
+        { "type": "informational", "label": "Prompt preview (200 char truncated)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 4,
+        "toggles": 1,
+        "buttons": 3,
+        "informational": 1
+      },
+      "keyboard_shortcuts": ["Esc: Cancel editing / close tab", "Ctrl+Enter: Save prompt"]
+    },
+    "screen_005": {
+      "id": "screen_005",
+      "title": "Settings Modal",
+      "component": "SettingsModal.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Ctrl+, or gear icon in info strip",
+      "description": "Modal overlay with four sections: Appearance (14 theme previews), Terminal Font (family + size), Chat Font (family + size), Directories (container/single project dirs), and Behavior (view style, tab layout, sort, security gate, autocomplete, hide thinking, marketplace toggle).",
+      "elements": [
+        { "type": "button", "label": "Theme preview card (x14)", "leads_to": null },
+        { "type": "dropdown", "label": "Terminal font family selector", "leads_to": null },
+        { "type": "slider", "label": "Terminal font size (10-24px)", "leads_to": null },
+        { "type": "dropdown", "label": "Chat font family selector", "leads_to": null },
+        { "type": "slider", "label": "Chat font size (10-24px)", "leads_to": null },
+        { "type": "button", "label": "Directory mode badge (container/single toggle)", "leads_to": null },
+        { "type": "button", "label": "Remove directory", "leads_to": null },
+        { "type": "input", "label": "New directory path", "leads_to": null },
+        { "type": "dropdown", "label": "New directory mode (Container/Single)", "leads_to": null },
+        { "type": "button", "label": "Add directory", "leads_to": null },
+        { "type": "button", "label": "Save & Rescan (conditional)", "leads_to": null },
+        { "type": "segmented_control", "label": "View style (Terminal/Chat)", "leads_to": null },
+        { "type": "segmented_control", "label": "Tab layout (Horizontal/Vertical)", "leads_to": null },
+        { "type": "segmented_control", "label": "Sort order (alpha/last used/most used)", "leads_to": null },
+        { "type": "toggle", "label": "Security gate switch", "leads_to": null },
+        { "type": "toggle", "label": "Autocomplete switch", "leads_to": null },
+        { "type": "toggle", "label": "Hide thinking switch", "leads_to": null },
+        { "type": "toggle", "label": "Marketplace (global CLI) switch", "leads_to": null },
+        { "type": "button", "label": "Close", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 33,
+        "buttons": 18,
+        "segmented_controls": 3,
+        "toggles": 4,
+        "dropdowns": 3,
+        "sliders": 2,
+        "inputs": 1,
+        "informational": 2
+      }
+    },
+    "screen_006": {
+      "id": "screen_006",
+      "title": "Quick Launch Modal",
+      "component": "QuickLaunchModal.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "F10 or terminal icon in info strip",
+      "description": "Modal for launching a session in any arbitrary directory. Includes a text input, folder tree browser, 'add to projects' checkbox, and Cancel/Launch buttons.",
+      "elements": [
+        { "type": "input", "label": "Directory path input", "leads_to": null },
+        { "type": "expandable", "label": "Folder tree browser (FolderTree)", "leads_to": null },
+        { "type": "checkbox", "label": "Add to project list", "leads_to": null },
+        { "type": "button", "label": "Cancel", "leads_to": null },
+        { "type": "button", "label": "Launch", "leads_to": "screen_007" }
+      ],
+      "element_summary": {
+        "total_interactive": 5,
+        "inputs": 1,
+        "expandable": 1,
+        "checkboxes": 1,
+        "buttons": 2
+      }
+    },
+    "screen_007": {
+      "id": "screen_007",
+      "title": "Agent Session (Terminal View)",
+      "component": "TerminalView.tsx via AgentView.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Enter on selected project or double-click",
+      "description": "The primary agent interaction screen in terminal style. Shows a virtualized message log with tool calls, permissions, thinking blocks, and a chat input. Bottom bar displays model, effort, cost, tokens, context usage, and rate limit. Right sidebar toggleable with 5 tabs.",
+      "elements": [
+        { "type": "input", "label": "Chat input textarea", "leads_to": null },
+        { "type": "button", "label": "Send message (>)", "leads_to": null },
+        { "type": "button", "label": "Attach files (+)", "leads_to": null },
+        { "type": "button", "label": "Toggle sidebar", "leads_to": "screen_011" },
+        { "type": "expandable", "label": "Tool call (collapsible)", "leads_to": null },
+        { "type": "button", "label": "Permission: Yes", "leads_to": null },
+        { "type": "button", "label": "Permission: No", "leads_to": null },
+        { "type": "button", "label": "Permission: Allow session", "leads_to": null },
+        { "type": "expandable", "label": "Thinking block (collapsible)", "leads_to": null },
+        { "type": "informational", "label": "Result bar (cost, tokens, turns, duration)", "leads_to": null },
+        { "type": "informational", "label": "Bottom bar (model, effort, stats, context, rate limit)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 9,
+        "inputs": 1,
+        "buttons": 5,
+        "expandable": 2,
+        "informational": 2
+      },
+      "keyboard_shortcuts": [
+        "Enter: Submit message",
+        "Shift+Enter: New line",
+        "Ctrl+C: Copy selection / interrupt agent",
+        "Ctrl+B: Toggle right sidebar",
+        "/: Slash command menu",
+        "@: Agent mention menu"
+      ]
+    },
+    "screen_008": {
+      "id": "screen_008",
+      "title": "Agent Session (Chat View)",
+      "component": "ChatView.tsx via AgentView.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Same as Terminal View, activated when Settings > View style = Chat",
+      "description": "Alternative rendering of the agent session with Markdown-rendered messages, syntax-highlighted code blocks, copy buttons, and a sans-serif chat font. Same underlying data as Terminal View.",
+      "elements": [
+        { "type": "input", "label": "Chat input textarea", "leads_to": null },
+        { "type": "button", "label": "Send message (>)", "leads_to": null },
+        { "type": "button", "label": "Attach files (+)", "leads_to": null },
+        { "type": "button", "label": "Toggle sidebar", "leads_to": "screen_011" },
+        { "type": "button", "label": "Copy response (hover)", "leads_to": null },
+        { "type": "button", "label": "Code block copy", "leads_to": null },
+        { "type": "expandable", "label": "Tool call (Collapsible)", "leads_to": null },
+        { "type": "button", "label": "Permission: Yes/No/Allow session", "leads_to": null },
+        { "type": "expandable", "label": "Thinking block (collapsible)", "leads_to": null },
+        { "type": "informational", "label": "Markdown-rendered assistant messages", "leads_to": null },
+        { "type": "informational", "label": "Bottom bar with context/quota meters", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 9,
+        "inputs": 1,
+        "buttons": 5,
+        "expandable": 2,
+        "informational": 2
+      }
+    },
+    "screen_009": {
+      "id": "screen_009",
+      "title": "Sessions Browser (Full Page)",
+      "component": "SessionBrowser.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Ctrl+Shift+H",
+      "description": "Full-screen singleton tab listing all past agent sessions across all projects. Shows date, project name, and summary in a tabular format with keyboard navigation.",
+      "elements": [
+        { "type": "card", "label": "Session row (clickable)", "leads_to": null },
+        { "type": "informational", "label": "Filter display", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 1,
+        "cards": 1,
+        "informational": 1
+      },
+      "keyboard_shortcuts": [
+        "Enter: View session",
+        "R: Resume session",
+        "F: Fork session",
+        "Arrow keys: Navigate",
+        "Type: Filter sessions",
+        "Esc: Clear filter / close"
+      ]
+    },
+    "screen_010": {
+      "id": "screen_010",
+      "title": "Session Panel (Side Panel)",
+      "component": "SessionPanel.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "Ctrl+Shift+S or Sessions icon in tab bar",
+      "description": "Slide-in side panel showing sessions scoped to the current project. Each session has resume/fork buttons, relative timestamps, and a right-click context menu.",
+      "elements": [
+        { "type": "card", "label": "Session item (click to resume)", "leads_to": "screen_007" },
+        { "type": "button", "label": "Resume session (play icon)", "leads_to": "screen_007" },
+        { "type": "button", "label": "Fork session (fork icon)", "leads_to": "screen_007" },
+        { "type": "button", "label": "Close panel (x)", "leads_to": null },
+        { "type": "menu_item", "label": "Context menu: Resume", "leads_to": "screen_007" },
+        { "type": "menu_item", "label": "Context menu: Fork", "leads_to": "screen_007" },
+        { "type": "menu_item", "label": "Context menu: Resume in New Tab", "leads_to": "screen_007" },
+        { "type": "menu_item", "label": "Context menu: Fork in New Tab", "leads_to": "screen_007" },
+        { "type": "informational", "label": "Filter display", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 8,
+        "cards": 1,
+        "buttons": 3,
+        "menu_items": 4
+      },
+      "keyboard_shortcuts": [
+        "Enter: Resume (Ctrl+Enter for new tab)",
+        "F: Fork",
+        "Ctrl+F: Fork in new tab",
+        "Arrow keys: Navigate",
+        "Type: Filter",
+        "Esc: Clear filter / close"
+      ]
+    },
+    "screen_011": {
+      "id": "screen_011",
+      "title": "Right Sidebar (Agent Session)",
+      "component": "RightSidebar.tsx",
+      "depth": 2,
+      "min_clicks_from_root": 2,
+      "path_from_root": ["screen_001", "screen_007"],
+      "reached_via": "Sidebar toggle button or Ctrl+B in agent session",
+      "description": "Collapsible right sidebar within the agent session view with 5 tabbed panels: Bookmarks, Minimap, Todos, Thinking, and Agents.",
+      "elements": [
+        { "type": "tab", "label": "Bookmarks tab", "leads_to": "screen_011a" },
+        { "type": "tab", "label": "Minimap tab", "leads_to": "screen_011b" },
+        { "type": "tab", "label": "Todos tab", "leads_to": "screen_011c" },
+        { "type": "tab", "label": "Thinking tab", "leads_to": "screen_011d" },
+        { "type": "tab", "label": "Agents tab", "leads_to": "screen_011e" }
+      ],
+      "element_summary": {
+        "total_interactive": 5,
+        "tabs": 5
+      },
+      "sub_panels": {
+        "screen_011a": {
+          "title": "Bookmarks Panel",
+          "component": "BookmarkPanel.tsx",
+          "description": "Lists all user messages as navigable bookmarks with timestamps. Click to scroll to message."
+        },
+        "screen_011b": {
+          "title": "Minimap Panel",
+          "component": "MinimapPanel.tsx",
+          "description": "Canvas-rendered minimap of the entire conversation with viewport indicator."
+        },
+        "screen_011c": {
+          "title": "Todos Panel",
+          "component": "TodoPanel.tsx",
+          "description": "Shows the latest todo list from the agent with status indicators (pending/in_progress/completed)."
+        },
+        "screen_011d": {
+          "title": "Thinking Panel",
+          "component": "ThinkingPanel.tsx",
+          "description": "Aggregated view of all thinking blocks from the conversation."
+        },
+        "screen_011e": {
+          "title": "Agents Panel",
+          "component": "AgentTreePanel.tsx",
+          "description": "Shows running and completed sub-agent tasks with token counts, tool uses, and duration."
+        }
+      }
+    },
+    "screen_012": {
+      "id": "screen_012",
+      "title": "Create Project Modal",
+      "component": "CreateProjectModal.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "F5 on project picker",
+      "description": "Modal for creating a new project directory. Includes name input, parent directory input with folder tree browser, git init checkbox.",
+      "elements": [
+        { "type": "input", "label": "Project name", "leads_to": null },
+        { "type": "input", "label": "Parent directory", "leads_to": null },
+        { "type": "expandable", "label": "Folder tree browser", "leads_to": null },
+        { "type": "checkbox", "label": "Initialize git repository", "leads_to": null },
+        { "type": "button", "label": "Cancel", "leads_to": null },
+        { "type": "button", "label": "Create", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 6,
+        "inputs": 2,
+        "expandable": 1,
+        "checkboxes": 1,
+        "buttons": 2
+      }
+    },
+    "screen_013": {
+      "id": "screen_013",
+      "title": "Label Project Modal",
+      "component": "LabelProjectModal.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "F8 on project picker with a project selected",
+      "description": "Simple modal for setting a display label on a project (overrides folder name).",
+      "elements": [
+        { "type": "input", "label": "Display label", "leads_to": null },
+        { "type": "button", "label": "Cancel", "leads_to": null },
+        { "type": "button", "label": "Save", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 3,
+        "inputs": 1,
+        "buttons": 2
+      }
+    },
+    "screen_014": {
+      "id": "screen_014",
+      "title": "Shortcuts Overlay",
+      "component": "ShortcutsOverlay.tsx",
+      "depth": 1,
+      "min_clicks_from_root": 1,
+      "path_from_root": ["screen_001"],
+      "reached_via": "F1",
+      "description": "Full-screen overlay showing all keyboard shortcuts organized into 4 sections: Global, Project Picker, Agent Session, Sessions Browser.",
+      "elements": [
+        { "type": "informational", "label": "Shortcuts grid (4 sections)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 0,
+        "informational": 1
+      },
+      "keyboard_shortcuts": ["F1 / Esc: Close"]
+    },
+    "screen_015": {
+      "id": "screen_015",
+      "title": "System Prompt Editor (Create)",
+      "component": "SystemPromptPage.tsx (inline editor)",
+      "depth": 2,
+      "min_clicks_from_root": 2,
+      "path_from_root": ["screen_001", "screen_004"],
+      "reached_via": "+ New Prompt button on System Prompts page",
+      "description": "Inline editor for creating a new system prompt with name, description, and content fields.",
+      "elements": [
+        { "type": "input", "label": "Prompt name", "leads_to": null },
+        { "type": "input", "label": "Description (optional)", "leads_to": null },
+        { "type": "textarea", "label": "System prompt content", "leads_to": null },
+        { "type": "button", "label": "Save (Ctrl+Enter)", "leads_to": null },
+        { "type": "button", "label": "Cancel (Esc)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 5,
+        "inputs": 2,
+        "textareas": 1,
+        "buttons": 2
+      }
+    },
+    "screen_016": {
+      "id": "screen_016",
+      "title": "System Prompt Editor (Edit)",
+      "component": "SystemPromptPage.tsx (inline editor)",
+      "depth": 3,
+      "min_clicks_from_root": 3,
+      "path_from_root": ["screen_001", "screen_004", "screen_016"],
+      "reached_via": "Edit button on an existing prompt in System Prompts page",
+      "description": "Same inline editor as Create, pre-populated with existing prompt data. Supports rename (slug changes auto-tracked).",
+      "elements": [
+        { "type": "input", "label": "Prompt name (pre-filled)", "leads_to": null },
+        { "type": "input", "label": "Description (pre-filled)", "leads_to": null },
+        { "type": "textarea", "label": "System prompt content (pre-filled)", "leads_to": null },
+        { "type": "button", "label": "Save (Ctrl+Enter)", "leads_to": null },
+        { "type": "button", "label": "Cancel (Esc)", "leads_to": null }
+      ],
+      "element_summary": {
+        "total_interactive": 5,
+        "inputs": 2,
+        "textareas": 1,
+        "buttons": 2
+      }
+    }
+  },
+  "navigation_graph": {
+    "screen_001": ["screen_002", "screen_003", "screen_004", "screen_005", "screen_006", "screen_007", "screen_008", "screen_009", "screen_010", "screen_012", "screen_013", "screen_014"],
+    "screen_002": ["screen_001"],
+    "screen_003": ["screen_001"],
+    "screen_004": ["screen_001", "screen_015", "screen_016"],
+    "screen_005": ["screen_001"],
+    "screen_006": ["screen_001", "screen_007"],
+    "screen_007": ["screen_001", "screen_011"],
+    "screen_008": ["screen_001", "screen_011"],
+    "screen_009": ["screen_001", "screen_007"],
+    "screen_010": ["screen_007"],
+    "screen_011": [],
+    "screen_012": ["screen_001"],
+    "screen_013": ["screen_001"],
+    "screen_014": ["screen_001"],
+    "screen_015": ["screen_004"],
+    "screen_016": ["screen_004"]
+  },
+  "workflows": [
+    {
+      "id": "wf_001",
+      "name": "Launch Agent Session",
+      "destination_screen": "screen_007",
+      "destination_title": "Agent Session (Terminal View)",
+      "min_clicks": 1,
+      "steps": [
+        { "step": 1, "screen": "screen_001", "title": "New Tab Page", "action": "Select project + press Enter" },
+        { "step": 2, "screen": "screen_007", "title": "Agent Session", "action": "Arrived (session spawning)" }
+      ]
+    },
+    {
+      "id": "wf_002",
+      "name": "Quick Launch Arbitrary Directory",
+      "destination_screen": "screen_007",
+      "destination_title": "Agent Session",
+      "min_clicks": 2,
+      "steps": [
+        { "step": 1, "screen": "screen_001", "title": "New Tab Page", "action": "Press F10 or click terminal icon" },
+        { "step": 2, "screen": "screen_006", "title": "Quick Launch Modal", "action": "Enter path + click Launch" },
+        { "step": 3, "screen": "screen_007", "title": "Agent Session", "action": "Arrived" }
+      ]
+    },
+    {
+      "id": "wf_003",
+      "name": "Resume Previous Session",
+      "destination_screen": "screen_007",
+      "destination_title": "Agent Session (resumed)",
+      "min_clicks": 2,
+      "steps": [
+        { "step": 1, "screen": "screen_001", "title": "New Tab Page", "action": "Toggle session panel (Ctrl+Shift+S)" },
+        { "step": 2, "screen": "screen_010", "title": "Session Panel", "action": "Click session or press Enter" },
+        { "step": 3, "screen": "screen_007", "title": "Agent Session", "action": "Session resumed" }
+      ]
+    },
+    {
+      "id": "wf_004",
+      "name": "Create and Manage System Prompt",
+      "destination_screen": "screen_015",
+      "destination_title": "System Prompt Editor",
+      "min_clicks": 3,
+      "steps": [
+        { "step": 1, "screen": "screen_001", "title": "New Tab Page", "action": "Press Ctrl+Shift+P or click pencil icon" },
+        { "step": 2, "screen": "screen_004", "title": "System Prompts Page", "action": "Click '+ New Prompt'" },
+        { "step": 3, "screen": "screen_015", "title": "System Prompt Editor", "action": "Fill in fields and save" }
+      ]
+    },
+    {
+      "id": "wf_005",
+      "name": "Change Theme",
+      "destination_screen": "screen_005",
+      "destination_title": "Settings Modal",
+      "min_clicks": 2,
+      "steps": [
+        { "step": 1, "screen": "screen_001", "title": "New Tab Page", "action": "Press Ctrl+, or click gear icon" },
+        { "step": 2, "screen": "screen_005", "title": "Settings Modal", "action": "Click desired theme preview card" }
+      ]
+    }
+  ]
+}
