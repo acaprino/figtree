@@ -75,7 +75,7 @@ export default memo(function RightSidebar({ messages, agentTasks, onScrollToMess
           >
             {tab.icon}
             {tab.id === "todos" && todoCount > 0 && (
-              <span className="sidebar-tab-badge">{todoCount}</span>
+              <span key={todoCount} className="sidebar-tab-badge">{todoCount}</span>
             )}
           </button>
         ))}

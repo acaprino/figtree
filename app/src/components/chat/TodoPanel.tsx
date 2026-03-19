@@ -14,7 +14,7 @@ export default memo(function TodoPanel({ messages }: Props) {
   }, [messages]);
 
   if (todos.length === 0) {
-    return <div className="sidebar-empty">No tasks yet</div>;
+    return <div className="sidebar-empty"><span className="sidebar-empty-icon">{"\u2610"}</span>No tasks yet</div>;
   }
 
   return (

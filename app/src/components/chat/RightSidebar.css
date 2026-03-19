@@ -8,6 +8,11 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  animation: right-sidebar-in 0.15s ease-out;
+}
+@keyframes right-sidebar-in {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .right-sidebar__resize {
@@ -47,8 +52,15 @@
   font-size: var(--text-sm);
   color: var(--text);
   opacity: 0.5;
-  transition: opacity 0.1s, background 0.1s;
+  transition: opacity 0.15s ease-out, background 0.15s ease-out, transform 0.15s ease-out;
   position: relative;
+}
+
+.right-sidebar-tab:active { transform: scale(0.93); transition-duration: 0.05s; }
+
+.right-sidebar-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .right-sidebar-tab:hover {
@@ -62,6 +74,7 @@
 .right-sidebar-tab.active {
   opacity: 1;
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .sidebar-tab-badge {
@@ -79,6 +92,11 @@
   text-align: center;
   padding: 0 3px;
   pointer-events: none;
+  animation: badge-pop 0.2s ease-out;
+}
+@keyframes badge-pop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 .right-sidebar-content {
@@ -121,11 +139,19 @@
 }
 
 .sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--text-dim);
   font-size: var(--text-sm);
   text-align: center;
-  padding: var(--space-4) var(--space-2);
+  padding: var(--space-8) var(--space-4);
   opacity: 0.5;
+}
+.sidebar-empty-icon {
+  font-size: var(--text-xl);
+  opacity: 0.4;
 }
 
 .light-theme .sidebar-empty { opacity: 0.7; }
@@ -150,13 +176,30 @@
   font-size: var(--text-xs);
   color: var(--text-dim);
   border-radius: var(--radius-sm);
-  transition: background 0.1s;
+  transition: background 0.15s ease-out;
   width: 100%;
 }
 
 .bookmark-item:hover {
   background: var(--hover-overlay-subtle);
   color: var(--text);
+}
+
+.bookmark-item:active { background: color-mix(in srgb, var(--text) 15%, transparent); }
+
+.bookmark-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.bookmark-panel-header {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--overlay0);
+  padding: var(--space-1);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid color-mix(in srgb, var(--overlay0) 20%, transparent);
 }
 
 .bookmark-arrow {
@@ -191,7 +234,7 @@
   min-height: 3px;
   border-radius: 2px;
   cursor: pointer;
-  transition: opacity 0.1s;
+  transition: opacity 0.15s ease-out;
 }
 
 /* !important needed to override JS-applied inline opacity on minimap blocks */
@@ -267,11 +310,18 @@
   min-width: 0;
   text-align: left;
   border-radius: var(--radius-sm);
-  transition: background 0.1s;
+  transition: background 0.15s ease-out;
 }
 
 .thinking-entry-header:hover {
   background: var(--hover-overlay-subtle);
+}
+
+.thinking-entry-header:active { background: color-mix(in srgb, var(--text) 10%, transparent); }
+
+.thinking-entry-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .thinking-entry-time {
@@ -298,6 +348,10 @@
   overflow-wrap: break-word;
   min-width: 0;
   margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface) transparent;
 }
 
 /* ── Todo Panel ────────────────────────────────────────────────── */
@@ -314,7 +368,9 @@
   padding: var(--space-1);
   font-size: var(--text-xs);
   border-radius: var(--radius-sm);
+  transition: background 0.15s ease-out;
 }
+.todo-item:hover { background: var(--hover-overlay-subtle); }
 
 .todo-check {
   flex-shrink: 0;
@@ -367,7 +423,9 @@
   border-radius: var(--radius-sm);
   border-left: 2px solid transparent;
   font-size: var(--text-sm);
+  transition: background 0.15s ease-out, border-left-color 0.15s ease-out;
 }
+.agent-task:hover { background: var(--hover-overlay-subtle); }
 
 .agent-task + .agent-task {
   margin-top: var(--space-1);

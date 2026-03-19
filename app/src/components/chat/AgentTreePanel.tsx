@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<AgentTask["status"], string> = {
 
 export default memo(function AgentTreePanel({ tasks }: Props) {
   if (tasks.length === 0) {
-    return <div className="sidebar-empty">No running agents</div>;
+    return <div className="sidebar-empty"><span className="sidebar-empty-icon">{"\u2B21"}</span>No running agents</div>;
   }
 
   const running = tasks.filter(t => t.status === "running");

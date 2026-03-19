@@ -15,20 +15,20 @@ export default memo(function ThinkingPanel({ messages }: Props) {
   const thinkingMessages = useMemo(() => messages.filter((m) => m.role === "thinking"), [messages]);
 
   if (thinkingMessages.length === 0) {
-    return <div className="sidebar-empty">No thinking blocks yet</div>;
+    return <div className="sidebar-empty"><span className="sidebar-empty-icon">{"\u2726"}</span>No thinking blocks yet</div>;
   }
 
   return (
     <div className="thinking-history-panel">
-      {thinkingMessages.map((msg) => (
-        <ThinkingEntry key={msg.id} msg={msg} />
+      {thinkingMessages.map((msg, i) => (
+        <ThinkingEntry key={msg.id} msg={msg} defaultExpanded={i === thinkingMessages.length - 1} />
       ))}
     </div>
   );
 });
 
-const ThinkingEntry = memo(function ThinkingEntry({ msg }: { msg: ChatMessage }) {
-  const [expanded, setExpanded] = useState(true);
+const ThinkingEntry = memo(function ThinkingEntry({ msg, defaultExpanded }: { msg: ChatMessage; defaultExpanded: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   if (msg.role !== "thinking") return null;
 
   const lineCount = msg.text.split("\n").length;

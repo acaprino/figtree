@@ -15,21 +15,22 @@ export default memo(function BookmarkPanel({ messages, onScrollToMessage }: Prop
   const userMessages = useMemo(() => messages.filter((m) => m.role === "user"), [messages]);
 
   if (userMessages.length === 0) {
-    return <div className="sidebar-empty">No messages yet</div>;
+    return <div className="sidebar-empty"><span className="sidebar-empty-icon">{"\u25B8"}</span>No messages yet</div>;
   }
 
   return (
     <div className="bookmark-panel">
+      <div className="bookmark-panel-header">Messages ({userMessages.length})</div>
       {userMessages.map((msg) => (
         <button
           key={msg.id}
           className="bookmark-item"
           onClick={() => onScrollToMessage(msg.id)}
-          title={msg.role === "user" ? msg.text : ""}
+          title={msg.text}
         >
           <span className="bookmark-arrow">{"\u25B8"}</span>
           <span className="bookmark-text">
-            {msg.role === "user" ? (msg.text.length > 35 ? msg.text.slice(0, 32) + "..." : msg.text) : ""}
+            {msg.text}
           </span>
           <span className="bookmark-time">{formatTime(msg.timestamp)}</span>
         </button>

@@ -256,7 +256,20 @@ button, input, select {
 .retro .tab.has-output::before,
 .retro .skeleton-row,
 .retro .terminal-container,
-.retro .session-config__toggle { animation: none; }
+.retro .session-config__toggle,
+.retro .right-sidebar { animation: none; }
+
+/* Right sidebar retro overrides */
+.retro .right-sidebar { border-left: 2px solid var(--overlay0); }
+.retro .right-sidebar-tabs { border-bottom: 2px solid var(--overlay0); }
+.retro .right-sidebar-tab,
+.retro .bookmark-item,
+.retro .thinking-entry,
+.retro .thinking-entry-header,
+.retro .todo-item,
+.retro .agent-task,
+.retro .sidebar-tab-badge { border-radius: 0; transition: none; }
+.retro .sidebar-tab-badge { animation: none; }
 
 /* Terminal-style font — Matrix hacker aesthetic */
 .retro * { font-family: "Cascadia Mono", "Consolas", "Lucida Console", monospace !important; }

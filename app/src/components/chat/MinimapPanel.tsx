@@ -100,7 +100,9 @@ export default memo(function MinimapPanel({ messages, scrollContainerRef }: Prop
     return items.slice(-200);
   }, [messages]);
 
-  if (messages.length === 0) return null;
+  if (filtered.length === 0) {
+    return <div className="sidebar-empty"><span className="sidebar-empty-icon">{"\u2592"}</span>No messages yet</div>;
+  }
 
   return (
     <div className="minimap-panel-sublime" ref={minimapRef} onClick={handleClick}>
