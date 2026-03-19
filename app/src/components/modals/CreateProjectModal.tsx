@@ -40,7 +40,7 @@ export default function CreateProjectModal({
             description: selectedTemplate.description,
             content: selectedTemplate.systemPrompt,
           });
-        } catch { /* best effort — prompt creation is optional */ }
+        } catch (err) { console.debug("[CreateProject] template prompt save failed:", err); }
       }
       onCreated();
       onClose();

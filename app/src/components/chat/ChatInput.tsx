@@ -162,8 +162,8 @@ export default memo(function ChatInput({ onSubmit, onCommand, processing, isActi
         const paths = Array.isArray(result) ? result : [result];
         addFiles(paths);
       }
-    } catch {
-      // User cancelled — ignore
+    } catch (err) {
+      console.debug("[ChatInput] file dialog cancelled or failed:", err);
     }
   };
 

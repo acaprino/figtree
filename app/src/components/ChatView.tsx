@@ -275,7 +275,7 @@ export default memo(function ChatView(props: SessionViewProps) {
               const textarea = chatContainerRef.current?.closest(".chat-view")?.querySelector("textarea");
               textarea?.focus();
             }, 100);
-          }).catch(() => {});
+          }).catch((err) => console.debug("[ChatView] setFocus after drop failed:", err));
         }
       }
     });

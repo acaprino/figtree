@@ -207,7 +207,7 @@ export default memo(function TerminalView(props: SessionViewProps) {
               const textarea = scrollRef.current?.closest(".terminal-view")?.querySelector("textarea");
               textarea?.focus();
             }, 100);
-          }).catch(() => {});
+          }).catch((err) => console.debug("[TerminalView] setFocus after drop failed:", err));
         }
       }
     });

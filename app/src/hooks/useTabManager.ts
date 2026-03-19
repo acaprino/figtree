@@ -66,7 +66,8 @@ export function useTabManager() {
         }
       }
       setSessionLoaded(true);
-    }).catch(() => {
+    }).catch((err) => {
+      console.debug("[tabs] session restore failed:", err);
       setSessionLoaded(true);
     });
   }, []);
@@ -124,7 +125,7 @@ export function useTabManager() {
       if (!sessionLoadedRef.current) return;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       const terminalTabs: SavedTab[] = JSON.parse(saveableStateRef.current);
-      invoke("save_session", { session: { tabs: terminalTabs } }).catch(() => {});
+      invoke("save_session", { session: { tabs: terminalTabs } }).catch((err) => console.debug("[tabs] beforeunload session save failed:", err));
     };
     window.addEventListener("beforeunload", flushSave);
     return () => window.removeEventListener("beforeunload", flushSave);

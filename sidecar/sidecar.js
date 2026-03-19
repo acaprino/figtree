@@ -369,7 +369,7 @@ async function consumeQuery(tabId, q, sessionRef) {
                     }));
                     emit({ evt: "todo", tabId, todos: mapped });
                   }
-                } catch { /* ignore parse errors */ }
+                } catch (err) { log("DEBUG: TodoWrite parse error:", err.message); }
               }
             } else if (block.type === "thinking") {
               if (!hasStreamedText) {
@@ -806,8 +806,8 @@ function readClaudeOAuthToken() {
     if (oauth?.accessToken && oauth.expiresAt > Date.now()) {
       return { token: oauth.accessToken, expiresAt: oauth.expiresAt };
     }
-  } catch {
-    // Credentials file not found or unreadable
+  } catch (err) {
+    log("DEBUG: OAuth credentials read failed:", err.message);
   }
   return null;
 }
@@ -924,7 +924,8 @@ async function handleAutocomplete(cmd) {
     try {
       const parsed = JSON.parse(text);
       suggestions = Array.isArray(parsed.completions) ? parsed.completions.filter(s => typeof s === "string").slice(0, 3) : [];
-    } catch {
+    } catch (err) {
+      log("DEBUG: autocomplete JSON parse failed:", err.message);
       suggestions = [];
     }
 
@@ -943,8 +944,8 @@ rl.on("line", async (line) => {
   let cmd;
   try {
     cmd = JSON.parse(line);
-  } catch {
-    log("Invalid JSON:", line);
+  } catch (err) {
+    log("Invalid JSON:", line, "error:", err.message);
     return;
   }
 

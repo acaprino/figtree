@@ -278,7 +278,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
       } else if (event.type === "permission") {
         // In bypass mode, auto-approve any permission the SDK still emits
         if (permMode === "bypassPermissions") {
-          respondPermission(tabId, true).catch(() => {});
+          respondPermission(tabId, true).catch((err) => console.debug("[session] auto-approve permission failed:", err));
           setMessages(prev => [...prev, {
             id: nextId(), role: "permission", tool: event.tool, description: event.description,
             suggestions: event.suggestions, timestamp: Date.now(), resolved: true, allowed: true,
@@ -291,7 +291,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         }]);
         setInputState("processing");
         onTaglineChangeRef.current?.(tabIdRef.current, `Permission: ${event.tool}`);
-        notifyAttention("Permission Required", `${event.tool}: ${event.description || "Tool needs approval"}`, !isActiveRef.current).catch(() => {});
+        notifyAttention("Permission Required", `${event.tool}: ${event.description || "Tool needs approval"}`, !isActiveRef.current).catch((err) => console.debug("[session] permission notification failed:", err));
       } else if (event.type === "ask") {
         finalizeStreaming();
         finalizeThinking();
@@ -301,7 +301,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         }]);
         setInputState("processing");
         onTaglineChangeRef.current?.(tabIdRef.current, "Question");
-        notifyAttention("Question", "Claude is asking a question", !isActiveRef.current).catch(() => {});
+        notifyAttention("Question", "Claude is asking a question", !isActiveRef.current).catch((err) => console.debug("[session] ask notification failed:", err));
         queueMicrotask(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }));
       } else if (event.type === "inputRequired") {
         finalizeStreaming();
@@ -310,12 +310,12 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         if (messageQueueRef.current.length > 0) {
           const next = messageQueueRef.current.shift()!;
           setQueueLength(messageQueueRef.current.length);
-          sendAgentMessage(tabId, next).catch(() => {});
+          sendAgentMessage(tabId, next).catch((err) => console.debug("[session] queue drain send failed:", err));
           setInputState("processing");
         } else {
           setInputState("awaiting_input");
           setBackgrounded(false);
-          notifyAttention("Input Required", "Claude is waiting for your input", !isActiveRef.current).catch(() => {});
+          notifyAttention("Input Required", "Claude is waiting for your input", !isActiveRef.current).catch((err) => console.debug("[session] input notification failed:", err));
         }
         onTaglineChangeRef.current?.(tabIdRef.current, "");
       } else if (event.type === "thinking") {
@@ -506,7 +506,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
             refreshCommands(tabId).then((data) => {
               setSdkCommands(data.commands || []);
               setSdkAgents(data.agents || []);
-            }).catch(() => {});
+            }).catch((err) => console.debug("[session] refreshCommands failed:", err));
           }, 60_000);
         })
         .catch((err) => {
@@ -539,7 +539,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
       const tid = tabIdRef.current;
       const killTimer = setTimeout(() => {
         _pendingKills.delete(tid);
-        killAgent(tid).catch(() => {});
+        killAgent(tid).catch((err) => console.debug("[session] deferred kill failed:", err));
       }, 50);
       _pendingKills.set(tid, killTimer);
     };
@@ -553,7 +553,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     permModeIdxRef.current = permModeIdx;
     if (!agentStartedRef.current) return;
     const permMode = PERM_MODES[permModeIdx]?.sdk || "plan";
-    setAgentPermMode(tabId, permMode).catch(() => {});
+    setAgentPermMode(tabId, permMode).catch((err) => console.debug("[session] setAgentPermMode failed:", err));
   }, [permModeIdx, tabId]);
 
   // ── Input submission ────────────────────────────────────────────
@@ -574,7 +574,8 @@ export function useSessionController(props: SessionControllerProps): SessionCont
             const content = await invoke<string>("read_external_file", { path: a.path });
             const filename = a.path.replace(/\\/g, "/").split("/").pop() || a.path;
             parts.push(`<file path="${escXml(a.path)}" name="${escXml(filename)}">\n${escXml(content)}\n</file>`);
-          } catch {
+          } catch (err) {
+            console.debug("[session] failed to read attached file:", a.path, err);
             parts.push(`[Attached: ${a.path}]`);
           }
         }
@@ -652,8 +653,8 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         respondedIdsRef.current.add(msg.id);
         const sugg = key === "a" ? msg.suggestions : undefined;
         const permMsgId = msg.id;
-        queueMicrotask(() => respondPermission(tabId, allow, sugg).catch(() => {
-          // Revert on failure so the user can retry
+        queueMicrotask(() => respondPermission(tabId, allow, sugg).catch((err) => {
+          console.debug("[session] keyboard permission response failed:", err);
           respondedIdsRef.current.delete(permMsgId);
           setMessages(p => p.map(m => m.id === permMsgId && m.role === "permission" ? { ...m, resolved: false, allowed: undefined } as typeof m : m));
         }));
@@ -705,7 +706,8 @@ export function useSessionController(props: SessionControllerProps): SessionCont
             try {
               await shellOpen(result.url);
               setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "status", status: "Browser opened for authentication", model: "", timestamp: Date.now() }]);
-            } catch {
+            } catch (err) {
+              console.debug("[session] shellOpen failed:", err);
               setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "status", status: `Open this URL: ${result.url}`, model: "", timestamp: Date.now() }]);
             }
           }
@@ -725,9 +727,9 @@ export function useSessionController(props: SessionControllerProps): SessionCont
   const handleInterrupt = useCallback(() => {
     if (inputStateRef.current === "awaiting_input") return;
     if (exitedRef.current) return;
-    interruptAgent(tabId).catch(() => {
-      // Fallback to hard kill if interrupt fails
-      killAgent(tabId).catch(() => {});
+    interruptAgent(tabId).catch((err) => {
+      console.debug("[session] interrupt failed, falling back to kill:", err);
+      killAgent(tabId).catch((err2) => console.debug("[session] fallback kill also failed:", err2));
     });
   }, [tabId]);
 
@@ -745,7 +747,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         const paths = Array.isArray(result) ? result : [result];
         setDroppedFiles(paths);
       }
-    } catch { /* cancelled */ }
+    } catch (err) { console.debug("[session] file dialog cancelled or failed:", err); }
   }, []);
 
   // ── Derived state ──────────────────────────────────────────────

@@ -18,7 +18,8 @@ async function ensurePermission(): Promise<boolean> {
     const result = await requestPermission();
     if (result === "granted") { permissionGranted = true; return true; }
     return false;
-  } catch {
+  } catch (err) {
+    console.debug("[notify] permission check/request failed:", err);
     return false;
   }
 }
@@ -33,5 +34,5 @@ export async function notifyAttention(title: string, body: string, force = false
     if (!(await ensurePermission())) return;
     lastNotifyTime = now;
     sendNotification({ title, body });
-  } catch { /* best-effort — never interrupt the session */ }
+  } catch (err) { console.debug("[notify] sendNotification failed:", err); }
 }

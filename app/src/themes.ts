@@ -58,7 +58,7 @@ export function applyTheme(themes: Theme[], themeIdx: number): void {
 
   const isRetro = !!theme.retro;
   root.classList.toggle("retro", isRetro);
-  invoke("set_window_corner_preference", { retro: isRetro }).catch(() => {});
+  invoke("set_window_corner_preference", { retro: isRetro }).catch((err) => console.debug("[themes] set_window_corner_preference failed:", err));
 }
 
 function isLightColor(hex: string): boolean {

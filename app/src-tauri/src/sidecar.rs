@@ -461,7 +461,10 @@ impl SidecarManager {
                 for line in reader.lines() {
                     match line {
                         Ok(l) => log_info!("sidecar stderr: {l}"),
-                        Err(_) => break,
+                        Err(e) => {
+                            log_warn!("sidecar stderr read error: {e}");
+                            break;
+                        }
                     }
                 }
             })

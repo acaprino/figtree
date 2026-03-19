@@ -144,7 +144,8 @@ const FolderTree = memo(function FolderTree({
             ...prev,
             [ancestor]: { expanded: true, children, loading: false },
           }));
-        } catch {
+        } catch (err) {
+          console.debug("[FolderTree] auto-expand failed for ancestor:", ancestor, err);
           break;
         }
       }
