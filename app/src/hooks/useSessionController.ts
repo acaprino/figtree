@@ -308,16 +308,16 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         // In bypass mode, auto-approve any permission the SDK still emits
         // Use ref (not closure) so live perm mode changes are respected
         if (PERM_MODES[permModeIdxRef.current]?.sdk === "bypassPermissions") {
-          respondPermission(tabId, true).catch((err) => console.debug("[session] auto-approve permission failed:", err));
+          respondPermission(tabId, true, event.toolUseId).catch((err) => console.debug("[session] auto-approve permission failed:", err));
           setMessages(prev => [...prev, {
             id: nextId(), role: "permission", tool: event.tool, description: event.description,
-            suggestions: event.suggestions, timestamp: Date.now(), resolved: true, allowed: true,
+            toolUseId: event.toolUseId, suggestions: event.suggestions, timestamp: Date.now(), resolved: true, allowed: true,
           }]);
           return;
         }
         setMessages(prev => [...prev, {
           id: nextId(), role: "permission", tool: event.tool, description: event.description,
-          suggestions: event.suggestions, timestamp: Date.now(),
+          toolUseId: event.toolUseId, suggestions: event.suggestions, timestamp: Date.now(),
         }]);
         setInputState("processing");
         onTaglineChangeRef.current?.(tabIdRef.current, `Permission: ${event.tool}`);
@@ -658,10 +658,16 @@ export function useSessionController(props: SessionControllerProps): SessionCont
   const handlePermissionRespond = useCallback((msgId: string, allow: boolean, suggestions?: PermissionSuggestion[]) => {
     if (respondedIdsRef.current.has(msgId)) return;
     respondedIdsRef.current.add(msgId);
-    setMessages(prev => prev.map(m =>
-      m.id === msgId && m.role === "permission" ? { ...m, resolved: true, allowed: allow } : m
-    ));
-    respondPermission(tabId, allow, suggestions).catch((err) => {
+    // Find the toolUseId from the permission message before updating
+    let toolUseId = "";
+    setMessages(prev => {
+      const msg = prev.find(m => m.id === msgId && m.role === "permission");
+      if (msg && msg.role === "permission") toolUseId = msg.toolUseId;
+      return prev.map(m =>
+        m.id === msgId && m.role === "permission" ? { ...m, resolved: true, allowed: allow } : m
+      );
+    });
+    respondPermission(tabId, allow, toolUseId, suggestions).catch((err) => {
       setMessages(prev => [...prev, { id: `msg-${tabId}-${++idCounterRef.current}`, role: "error", code: "permission", message: String(err), timestamp: Date.now() }]);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -702,7 +708,8 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         respondedIdsRef.current.add(msg.id);
         const sugg = key === "a" ? msg.suggestions : undefined;
         const permMsgId = msg.id;
-        queueMicrotask(() => respondPermission(tabId, allow, sugg).catch((err) => {
+        const permToolUseId = msg.toolUseId;
+        queueMicrotask(() => respondPermission(tabId, allow, permToolUseId, sugg).catch((err) => {
           console.debug("[session] keyboard permission response failed:", err);
           respondedIdsRef.current.delete(permMsgId);
           setMessages(p => p.map(m => m.id === permMsgId && m.role === "permission" ? { ...m, resolved: false, allowed: undefined } as typeof m : m));

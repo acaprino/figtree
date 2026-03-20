@@ -498,6 +498,17 @@ impl SidecarManager {
                     log_warn!("sidecar: stdout reader thread exiting — marking unavailable");
                     available.store(false, Ordering::SeqCst);
                     oneshots.lock().unwrap_or_else(|e| e.into_inner()).clear();
+
+                    // Notify all active tabs that the sidecar died so they don't freeze as zombies
+                    let mut guard = channels.write().unwrap_or_else(|e| e.into_inner());
+                    for (tab_id, channel) in guard.drain() {
+                        log_warn!("sidecar: notifying tab {} of sidecar death", tab_id);
+                        let _ = channel.send(AgentEvent::Error {
+                            code: "sidecar_died".to_string(),
+                            message: "Sidecar process terminated unexpectedly".to_string(),
+                        });
+                        let _ = channel.send(AgentEvent::Exit { code: -1 });
+                    }
                 } else {
                     log_info!("sidecar: old stdout reader thread exiting (superseded by restart)");
                 }
@@ -549,9 +560,20 @@ impl SidecarManager {
         *self.stdin.lock().unwrap_or_else(|e| e.into_inner()) = None;
         *self._process.lock().unwrap_or_else(|e| e.into_inner()) = None;
         *self._job.lock().unwrap_or_else(|e| e.into_inner()) = None;
-        // Drop stale oneshots and channels — they'll never get responses from the dead sidecar
+        // Drop stale oneshots — they'll never get responses from the dead sidecar
         self.oneshots.lock().unwrap_or_else(|e| e.into_inner()).clear();
-        self.channels.write().unwrap_or_else(|e| e.into_inner()).clear();
+        // Notify all active tabs before clearing channels
+        {
+            let mut guard = self.channels.write().unwrap_or_else(|e| e.into_inner());
+            for (tab_id, channel) in guard.drain() {
+                log_warn!("sidecar: notifying tab {} of restart", tab_id);
+                let _ = channel.send(AgentEvent::Error {
+                    code: "sidecar_restarting".to_string(),
+                    message: "Sidecar process is restarting".to_string(),
+                });
+                let _ = channel.send(AgentEvent::Exit { code: -1 });
+            }
+        }
 
         // Re-check deps in case node_modules were deleted while running
         if let Err(e) = self.ensure_deps(&node_path) {

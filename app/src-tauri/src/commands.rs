@@ -500,12 +500,14 @@ pub fn agent_permission(
     sidecar: State<'_, Arc<SidecarManager>>,
     tab_id: String,
     allow: bool,
+    tool_use_id: String,
     updated_permissions: Option<serde_json::Value>,
 ) -> Result<(), String> {
     let mut cmd = serde_json::json!({
         "cmd": "permission_response",
         "tabId": tab_id,
         "allow": allow,
+        "toolUseId": tool_use_id,
     });
     if let Some(perms) = updated_permissions {
         cmd["updatedPermissions"] = perms;
@@ -625,9 +627,17 @@ pub async fn refresh_commands(
 
 const MAX_EXTERNAL_FILE_SIZE: u64 = 1_048_576; // 1 MB
 
-const BLOCKED_DIRS: &[&str] = &[".ssh", ".gnupg", ".claude", ".aws", ".config", ".npmrc", ".kube", ".docker"];
+const BLOCKED_DIRS: &[&str] = &[
+    ".ssh", ".gnupg", ".claude", ".aws", ".config", ".npmrc", ".kube", ".docker",
+    ".git", ".password-store", ".vault-token",
+];
 
-/// Validate an external file path: canonicalize, reject UNC, block sensitive dirs.
+const BLOCKED_FILES: &[&str] = &[
+    ".env", ".env.local", ".env.production", ".env.staging", ".env.development",
+    "id_rsa", "id_ed25519", "id_ecdsa", "id_dsa",
+];
+
+/// Validate an external file path: canonicalize, reject UNC, block sensitive dirs and files.
 fn validate_external_path(path: &str) -> Result<std::path::PathBuf, String> {
     if crate::projects::is_unc(path) {
         return Err("UNC paths are not supported".to_string());
@@ -643,6 +653,13 @@ fn validate_external_path(path: &str) -> Result<std::path::PathBuf, String> {
                 log_warn!("validate_external_path: blocked sensitive path: {path}");
                 return Err("Access to sensitive directories is blocked".to_string());
             }
+        }
+    }
+    // Block sensitive filenames
+    if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+        if BLOCKED_FILES.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+            log_warn!("validate_external_path: blocked sensitive file: {path}");
+            return Err("Access to sensitive files is blocked".to_string());
         }
     }
     Ok(p)

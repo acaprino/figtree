@@ -128,13 +128,15 @@ export default memo(function ChatView(props: SessionViewProps) {
   // Sticky auto-scroll: stay pinned to bottom unless user scrolls up
   const stickyRef = useRef(true);
   const lastScrollTopRef = useRef(0);
-  // Guard: ignore scroll events caused by programmatic scrollTop assignment
-  const programmaticScrollRef = useRef(false);
+  // Guard: counter-based — incremented on programmatic scroll, checked in handler.
+  // Unlike a boolean, a counter survives multiple scroll events from one scrollTop assignment.
+  const programmaticScrollGenRef = useRef(0);
+  const lastSeenScrollGenRef = useRef(0);
 
   const scrollToBottom = useCallback(() => {
     const el = chatContainerRef.current;
     if (!el) return;
-    programmaticScrollRef.current = true;
+    programmaticScrollGenRef.current++;
     el.scrollTop = el.scrollHeight;
   }, []);
 
@@ -142,8 +144,9 @@ export default memo(function ChatView(props: SessionViewProps) {
     const el = chatContainerRef.current;
     if (!el) return;
     const handleScroll = () => {
-      if (programmaticScrollRef.current) {
-        programmaticScrollRef.current = false;
+      // If the generation changed, this scroll event was triggered programmatically
+      if (programmaticScrollGenRef.current !== lastSeenScrollGenRef.current) {
+        lastSeenScrollGenRef.current = programmaticScrollGenRef.current;
         lastScrollTopRef.current = el.scrollTop;
         return;
       }

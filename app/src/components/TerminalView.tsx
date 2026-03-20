@@ -102,12 +102,28 @@ export default memo(function TerminalView(props: SessionViewProps) {
   // Sticky auto-scroll: stay pinned to bottom unless user scrolls up
   const stickyRef = useRef(true);
   const lastScrollTopRef = useRef(0);
+  // Guard: counter-based — incremented on programmatic scroll, checked in handler.
+  // Unlike a boolean, a counter survives multiple scroll events from one scrollTop assignment.
+  const programmaticScrollGenRef = useRef(0);
+  const lastSeenScrollGenRef = useRef(0);
 
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    programmaticScrollGenRef.current++;
+    el.scrollTop = el.scrollHeight;
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const handleScroll = () => {
+      // If the generation changed, this scroll event was triggered programmatically
+      if (programmaticScrollGenRef.current !== lastSeenScrollGenRef.current) {
+        lastSeenScrollGenRef.current = programmaticScrollGenRef.current;
+        lastScrollTopRef.current = el.scrollTop;
+        return;
+      }
       const { scrollTop, scrollHeight, clientHeight } = el;
       const atBottom = scrollHeight - scrollTop - clientHeight < 60;
       if (scrollTop < lastScrollTopRef.current && !atBottom) {
@@ -147,8 +163,24 @@ export default memo(function TerminalView(props: SessionViewProps) {
   // Auto-scroll (only when sticky)
   useEffect(() => {
     if (!stickyRef.current) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-  }, [messages, streamingTick, thinkingTick, messagesEndRef]);
+    scrollToBottom();
+  }, [messages, streamingTick, thinkingTick, scrollToBottom]);
+
+  // Scroll to bottom when session becomes ready (e.g. after resume)
+  // Retry several times because heavy message rendering can shift layout
+  useEffect(() => {
+    if (inputState === "awaiting_input") {
+      stickyRef.current = true;
+      scrollToBottom();
+      const rafId = requestAnimationFrame(scrollToBottom);
+      const retryDelays = [50, 150, 400, 800];
+      const timeoutIds = retryDelays.map(ms => window.setTimeout(scrollToBottom, ms));
+      return () => {
+        cancelAnimationFrame(rafId);
+        timeoutIds.forEach(clearTimeout);
+      };
+    }
+  }, [inputState, scrollToBottom]);
 
   // Auto-focus textarea when window regains focus
   useEffect(() => {
@@ -209,7 +241,7 @@ export default memo(function TerminalView(props: SessionViewProps) {
         const paths = event.payload.paths.map(p => String(p));
         if (paths.length > 0) {
           setDroppedFiles(paths);
-          messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+          scrollToBottom();
           getCurrentWindow().setFocus().then(() => {
             setTimeout(() => {
               const textarea = scrollRef.current?.closest(".terminal-view")?.querySelector("textarea");

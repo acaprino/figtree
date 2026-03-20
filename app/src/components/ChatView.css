@@ -109,23 +109,25 @@
   border-radius: 0;
 }
 
-/* User messages: left-aligned, no bubble, prompt prefix style */
+/* User messages: left-aligned, background + border-left for visual distinction */
 .chat-msg--user {
   color: var(--text);
-  padding: var(--space-3) 0 var(--space-1) 0;
+  padding: var(--space-3) var(--space-3) var(--space-1) var(--space-4);
   border-radius: 0;
   max-width: 100%;
   white-space: pre-wrap;
   word-break: break-word;
-  padding-left: var(--space-4);
   position: relative;
+  background: var(--user-msg-bg);
+  border-left: 2px solid var(--user-msg-border);
+  margin: var(--space-1) 0;
 }
 
 /* Accent prompt prefix */
 .chat-msg--user::before {
   content: "\276F";
   position: absolute;
-  left: 0;
+  left: var(--space-1);
   color: var(--accent);
   font-weight: 700;
 }

@@ -44,6 +44,8 @@
   --sidebar-handle-width: 4px;
   --session-panel-width: 260px;
   --right-sidebar-width: 280px;
+  --user-msg-bg: color-mix(in srgb, var(--surface) 30%, transparent);
+  --user-msg-border: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 *, *::before, *::after {

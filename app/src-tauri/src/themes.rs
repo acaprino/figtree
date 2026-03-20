@@ -20,6 +20,10 @@ pub struct ThemeColors {
     pub yellow: String,
     pub cursor: String,
     pub selection: String,
+    #[serde(default)]
+    pub user_msg_bg: Option<String>,
+    #[serde(default)]
+    pub user_msg_border: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

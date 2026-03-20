@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Theme } from "./types";
 
+/** Strip characters unsafe for CSS font-family interpolation */
+function sanitizeFontName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9\s\-_.]/g, "");
+}
+
 export function applyTheme(themes: Theme[], themeIdx: number): void {
   const theme = themes[themeIdx] ?? themes[0];
   if (!theme) return; // themes not loaded yet
@@ -21,9 +26,13 @@ export function applyTheme(themes: Theme[], themeIdx: number): void {
   root.style.setProperty("--green", c.green);
   root.style.setProperty("--yellow", c.yellow);
 
+  // User message styling (theme-configurable)
+  root.style.setProperty("--user-msg-bg", c.userMsgBg ?? "color-mix(in srgb, var(--surface) 30%, transparent)");
+  root.style.setProperty("--user-msg-border", c.userMsgBorder ?? "color-mix(in srgb, var(--accent) 50%, transparent)");
+
   // Terminal font
   if (theme.termFont) {
-    root.style.setProperty("--font-mono", `"${theme.termFont}", "Consolas", monospace`);
+    root.style.setProperty("--font-mono", `"${sanitizeFontName(theme.termFont)}", "Consolas", monospace`);
   } else {
     root.style.removeProperty("--font-mono");
   }
@@ -40,7 +49,7 @@ export function applyTheme(themes: Theme[], themeIdx: number): void {
 
   // UI / chat font
   if (theme.uiFont) {
-    root.style.setProperty("--chat-font-family", `"${theme.uiFont}", "Segoe UI", system-ui, sans-serif`);
+    root.style.setProperty("--chat-font-family", `"${sanitizeFontName(theme.uiFont)}", "Segoe UI", system-ui, sans-serif`);
   } else {
     root.style.removeProperty("--chat-font-family");
   }

@@ -207,15 +207,16 @@ async function handleCreate(cmd) {
           return;
         }
         const timeout = setTimeout(() => {
-          if (session.pendingPermission?.toolUseId === opts.toolUseID) {
-            session.pendingPermission = null;
+          if (session.pendingPermissions?.has(opts.toolUseID)) {
+            session.pendingPermissions.delete(opts.toolUseID);
             resolve({ behavior: "deny", message: "Permission request timed out" });
           }
         }, PERMISSION_TIMEOUT_MS);
-        session.pendingPermission = {
+        if (!session.pendingPermissions) session.pendingPermissions = new Map();
+        session.pendingPermissions.set(opts.toolUseID, {
           resolve: (val) => { clearTimeout(timeout); resolve(val); },
           toolUseId: opts.toolUseID,
-        };
+        });
       });
       log(`canUseTool: result tool=${toolName} behavior=${result.behavior}`);
       return result;
@@ -306,7 +307,7 @@ async function handleCreate(cmd) {
   const session = {
     abortController,
     inputQueue,
-    pendingPermission: null,
+    pendingPermissions: new Map(),
     pendingAskUser: null,
     permState,
   };
@@ -598,10 +599,12 @@ function handleKill(cmd, silent = false) {
   session._pushInput(null);
   session.abortController.abort();
 
-  // Resolve any pending permission
-  if (session.pendingPermission) {
-    session.pendingPermission.resolve({ behavior: "deny", message: "Session killed" });
-    session.pendingPermission = null;
+  // Resolve all pending permissions
+  if (session.pendingPermissions?.size > 0) {
+    for (const [, pending] of session.pendingPermissions) {
+      pending.resolve({ behavior: "deny", message: "Session killed" });
+    }
+    session.pendingPermissions.clear();
   }
   // Resolve any pending AskUserQuestion
   if (session.pendingAskUser) {
@@ -619,19 +622,25 @@ function handleKill(cmd, silent = false) {
 
 function handlePermissionResponse(cmd) {
   const session = sessions.get(cmd.tabId);
-  if (!session?.pendingPermission) {
+  if (!session?.pendingPermissions || session.pendingPermissions.size === 0) {
     log(`No pending permission for tab ${cmd.tabId}`);
     return;
   }
 
-  // Validate toolUseId matches to prevent approving the wrong tool in a race
-  if (cmd.toolUseId && session.pendingPermission.toolUseId !== cmd.toolUseId) {
-    log(`Permission response toolUseId mismatch: expected=${session.pendingPermission.toolUseId} got=${cmd.toolUseId}`);
+  // Require toolUseId to prevent approving the wrong tool
+  if (!cmd.toolUseId) {
+    log(`Permission response missing toolUseId for tab ${cmd.tabId} -- rejecting`);
     return;
   }
 
-  const { resolve } = session.pendingPermission;
-  session.pendingPermission = null;
+  const pending = session.pendingPermissions.get(cmd.toolUseId);
+  if (!pending) {
+    log(`Permission response toolUseId not found: ${cmd.toolUseId} (pending: ${[...session.pendingPermissions.keys()].join(", ")})`);
+    return;
+  }
+
+  session.pendingPermissions.delete(cmd.toolUseId);
+  const { resolve } = pending;
 
   if (cmd.allow) {
     // updatedInput is required by the SDK's internal Zod schema — omitting it causes ZodError
@@ -700,10 +709,12 @@ async function handleInterrupt(cmd) {
     session._pushInput(null);
     session.abortController.abort();
 
-    // Resolve any pending permission or askUser
-    if (session.pendingPermission) {
-      session.pendingPermission.resolve({ behavior: "deny", message: "Interrupted" });
-      session.pendingPermission = null;
+    // Resolve all pending permissions or askUser
+    if (session.pendingPermissions?.size > 0) {
+      for (const [, pending] of session.pendingPermissions) {
+        pending.resolve({ behavior: "deny", message: "Interrupted" });
+      }
+      session.pendingPermissions.clear();
     }
     if (session.pendingAskUser) {
       session.pendingAskUser.resolve({ behavior: "deny", message: "Interrupted" });
@@ -1066,9 +1077,15 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
+let unhandledRejectionCount = 0;
 process.on("unhandledRejection", (reason) => {
   const msg = reason instanceof Error ? `${reason.message}\n${reason.stack}` : String(reason);
   log(`unhandledRejection: ${msg}`);
+  unhandledRejectionCount++;
+  if (unhandledRejectionCount > 5) {
+    log("Too many unhandled rejections — exiting for clean restart via try_restart");
+    process.exit(1);
+  }
 });
 
 log("Anvil sidecar started");

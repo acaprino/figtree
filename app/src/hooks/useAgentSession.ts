@@ -94,8 +94,8 @@ export async function killAgent(tabId: string): Promise<void> {
   await invoke("agent_kill", { tabId });
 }
 
-export async function respondPermission(tabId: string, allow: boolean, updatedPermissions?: PermissionSuggestion[]): Promise<void> {
-  await invoke("agent_permission", { tabId, allow, updatedPermissions: updatedPermissions || null });
+export async function respondPermission(tabId: string, allow: boolean, toolUseId: string, updatedPermissions?: PermissionSuggestion[]): Promise<void> {
+  await invoke("agent_permission", { tabId, allow, toolUseId, updatedPermissions: updatedPermissions || null });
 }
 
 export async function respondAskUser(tabId: string, answers: Record<string, string>): Promise<void> {
