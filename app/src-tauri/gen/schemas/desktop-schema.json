@@ -393,6 +393,12 @@
           "markdownDescription": "Allows querying active session count"
         },
         {
+          "description": "Allows responding to an agent ask-type prompt",
+          "type": "string",
+          "const": "allow-agent-ask-response",
+          "markdownDescription": "Allows responding to an agent ask-type prompt"
+        },
+        {
           "description": "Allows requesting autocomplete from an agent session",
           "type": "string",
           "const": "allow-agent-autocomplete",
@@ -439,6 +445,12 @@
           "type": "string",
           "const": "allow-agent-set-model",
           "markdownDescription": "Allows changing the model of an agent session"
+        },
+        {
+          "description": "Allows changing the permission mode of an agent session",
+          "type": "string",
+          "const": "allow-agent-set-perm-mode",
+          "markdownDescription": "Allows changing the permission mode of an agent session"
         },
         {
           "description": "Allows file path autocomplete",

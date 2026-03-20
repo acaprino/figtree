@@ -82,6 +82,7 @@ function log(...args) {
 
 // ── Constants ───────────────────────────────────────────────────────
 
+let _askIdCounter = 0;
 const VALID_PERM_MODES = new Set(["plan", "acceptEdits", "bypassPermissions"]);
 const ACCEPT_EDITS_TOOLS = new Set(["Write", "Edit", "Read", "Glob", "Grep"]);
 
@@ -223,7 +224,7 @@ async function handleCreate(cmd) {
       if (err.name === "ZodError" || err.message?.includes("Zod")) {
         log(`canUseTool ZodError details: ${JSON.stringify(err.issues || err.errors || err, null, 2)}`);
       }
-      emit({ evt: "error", tabId, code: "permission_error", message: `canUseTool(${toolName}): ${err.message}` });
+      emit({ evt: "error", tabId, code: "permission_error", message: `Permission check failed for ${toolName}` });
       // Fail closed: errors in the permission gate must deny, not allow
       return { behavior: "deny", message: `Internal error: ${err.message}` };
     }
@@ -272,7 +273,7 @@ async function handleCreate(cmd) {
 
           // Wait for user response from frontend (timeout 10 minutes — longer than
           // permission's 5 min because multi-step wizard takes more time)
-          const askId = Date.now() + Math.random();
+          const askId = `ask-${Date.now()}-${++_askIdCounter}`;
           const result = await new Promise((resolve) => {
             const timeout = setTimeout(() => {
               if (session.pendingAskUser?.askId === askId) {
@@ -539,6 +540,7 @@ async function consumeQuery(tabId, q, sessionRef) {
 
         case "rate_limit_event": {
           const info = msg.rate_limit_info;
+          if (!info) break;
           if (info.status === "rejected") {
             emit({
               evt: "error",
@@ -570,6 +572,7 @@ async function consumeQuery(tabId, q, sessionRef) {
     const current = sessions.get(tabId);
     if (current && current === sessionRef) {
       sessions.delete(tabId);
+      autocompleteTimestamps.delete(tabId);
       emit({ evt: "exit", tabId, code: 0 });
     }
   }
@@ -618,6 +621,12 @@ function handlePermissionResponse(cmd) {
   const session = sessions.get(cmd.tabId);
   if (!session?.pendingPermission) {
     log(`No pending permission for tab ${cmd.tabId}`);
+    return;
+  }
+
+  // Validate toolUseId matches to prevent approving the wrong tool in a race
+  if (cmd.toolUseId && session.pendingPermission.toolUseId !== cmd.toolUseId) {
+    log(`Permission response toolUseId mismatch: expected=${session.pendingPermission.toolUseId} got=${cmd.toolUseId}`);
     return;
   }
 
@@ -769,11 +778,11 @@ async function handleListSessions(cmd) {
     if (cmd.limit) options.limit = cmd.limit;
     if (cmd.offset) options.offset = cmd.offset;
 
-    const sessions = await listSessions(options);
+    const sessionList = await listSessions(options);
     emit({
       evt: "sessions",
       tabId: cmd.tabId,
-      list: sessions.map((s) => ({
+      list: sessionList.map((s) => ({
         id: s.sessionId,
         summary: s.summary,
         lastModified: s.lastModified,
@@ -1051,6 +1060,7 @@ process.on("uncaughtException", (err) => {
   if (err.name === "ZodError" || err.message?.includes("Zod")) {
     log(`ZodError details: ${JSON.stringify(err.issues || err.errors || err, null, 2)}`);
   }
+  process.exit(1);
 });
 
 process.on("unhandledRejection", (reason) => {

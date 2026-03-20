@@ -156,9 +156,19 @@ description = "Allows responding to an agent permission prompt"
 commands.allow = ["agent_permission"]
 
 [[permission]]
+identifier = "allow-agent-ask-response"
+description = "Allows responding to an agent ask-type prompt"
+commands.allow = ["agent_ask_response"]
+
+[[permission]]
 identifier = "allow-agent-set-model"
 description = "Allows changing the model of an agent session"
 commands.allow = ["agent_set_model"]
+
+[[permission]]
+identifier = "allow-agent-set-perm-mode"
+description = "Allows changing the permission mode of an agent session"
+commands.allow = ["agent_set_perm_mode"]
 
 [[permission]]
 identifier = "allow-list-agent-sessions"

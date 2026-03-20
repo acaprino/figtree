@@ -203,6 +203,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     const modelId = MODELS[modelIdx]?.id || "";
     const effortId = EFFORTS[effortIdx] || "high";
     const permMode = PERM_MODES[permModeIdx]?.sdk || "plan";
+    permModeIdxRef.current = permModeIdx;
 
     const finalizeStreaming = () => {
       if (!streamingIdRef.current) return;
@@ -277,7 +278,8 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         });
       } else if (event.type === "permission") {
         // In bypass mode, auto-approve any permission the SDK still emits
-        if (permMode === "bypassPermissions") {
+        // Use ref (not closure) so live perm mode changes are respected
+        if (PERM_MODES[permModeIdxRef.current]?.sdk === "bypassPermissions") {
           respondPermission(tabId, true).catch((err) => console.debug("[session] auto-approve permission failed:", err));
           setMessages(prev => [...prev, {
             id: nextId(), role: "permission", tool: event.tool, description: event.description,

@@ -7,11 +7,72 @@ import { createInterface } from "readline";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-// Active sessions: tabId → { query, abortController, inputQueue, inputResolve }
+// Active sessions: tabId → { query, abortController, inputQueue, inputResolve, pendingAskUser }
 const sessions = new Map();
 
-// Emit a JSON-line event to stdout
+// Timeout constants (ms)
+const PERMISSION_TIMEOUT_MS = 300_000; // 5 minutes
+const ASK_USER_TIMEOUT_MS = 600_000;   // 10 minutes — multi-step wizard needs more time
+
+// ── Batched emit ─────────────────────────────────────────────────
+// High-frequency streaming chunks (assistant text_delta, thinking_delta) are
+// coalesced per-tab over a ~16 ms window and flushed as a single JSON-line,
+// drastically reducing serialisation + I/O overhead during streaming.
+
+const BATCH_INTERVAL_MS = 8; // half-frame — keeps IPC low while reducing perceived latency
+
+// Per-tab accumulators: tabId → { text: string, thinking: string }
+const _batchBuf = new Map();
+let _batchTimer = null;
+
+/** Write buffered text/thinking for a single tab to stdout. */
+function _writeBuf(tabId, buf) {
+  if (buf.text) {
+    process.stdout.write(JSON.stringify({ evt: "assistant", tabId, text: buf.text, streaming: true }) + "\n");
+  }
+  if (buf.thinking) {
+    process.stdout.write(JSON.stringify({ evt: "thinking", tabId, text: buf.thinking }) + "\n");
+  }
+}
+
+function _flushBatch() {
+  _batchTimer = null;
+  for (const [tabId, buf] of _batchBuf) {
+    _writeBuf(tabId, buf);
+  }
+  _batchBuf.clear();
+}
+
+/** Queue a streaming text chunk for batched emission. */
+function emitStreamingText(tabId, text) {
+  let buf = _batchBuf.get(tabId);
+  if (!buf) { buf = { text: "", thinking: "" }; _batchBuf.set(tabId, buf); }
+  buf.text += text;
+  if (!_batchTimer) _batchTimer = setTimeout(_flushBatch, BATCH_INTERVAL_MS);
+}
+
+/** Queue a thinking delta for batched emission. */
+function emitThinkingDelta(tabId, text) {
+  let buf = _batchBuf.get(tabId);
+  if (!buf) { buf = { text: "", thinking: "" }; _batchBuf.set(tabId, buf); }
+  buf.thinking += text;
+  if (!_batchTimer) _batchTimer = setTimeout(_flushBatch, BATCH_INTERVAL_MS);
+}
+
+/** Flush any pending batched chunks for a tab (call before non-streaming events). */
+function flushTab(tabId) {
+  const buf = _batchBuf.get(tabId);
+  if (buf) {
+    _writeBuf(tabId, buf);
+    _batchBuf.delete(tabId);
+  }
+}
+
+// Emit a JSON-line event to stdout (non-batched, for control/structural events)
 function emit(evt) {
+  // Flush any pending batch for this tab before emitting a structural event,
+  // so ordering is preserved.
+  if (evt.tabId) flushTab(evt.tabId);
   process.stdout.write(JSON.stringify(evt) + "\n");
 }
 
@@ -19,10 +80,16 @@ function log(...args) {
   process.stderr.write(`[sidecar] ${args.join(" ")}\n`);
 }
 
+// ── Constants ───────────────────────────────────────────────────────
+
+let _askIdCounter = 0;
+const VALID_PERM_MODES = new Set(["plan", "acceptEdits", "bypassPermissions"]);
+const ACCEPT_EDITS_TOOLS = new Set(["Write", "Edit", "Read", "Glob", "Grep"]);
+
 // ── Command handlers ────────────────────────────────────────────────
 
 async function handleCreate(cmd) {
-  const { tabId, cwd, model, effort, systemPrompt, skipPerms, allowedTools, plugins } = cmd;
+  const { tabId, cwd, model, effort, systemPrompt, permMode, skipPerms, allowedTools, plugins } = cmd;
 
   if (sessions.has(tabId)) {
     // Kill existing session (React 18 StrictMode sends create→create→kill)
@@ -65,6 +132,7 @@ async function handleCreate(cmd) {
     effort: effort || "high",
     includePartialMessages: true,
     settingSources: ["user", "project", "local"],
+    agentProgressSummaries: true,
   };
 
   if (systemPrompt) {
@@ -75,17 +143,51 @@ async function handleCreate(cmd) {
     };
   }
 
-  if (skipPerms) {
+  // Resolve permission mode from the new permMode string or legacy skipPerms boolean
+  // Stored as mutable object so it can be updated mid-session via set_perm_mode command
+  const rawPermMode = permMode || (skipPerms ? "bypassPermissions" : null);
+  const permState = { mode: rawPermMode && VALID_PERM_MODES.has(rawPermMode) ? rawPermMode : null };
+
+  if (permState.mode === "bypassPermissions") {
     options.permissionMode = "bypassPermissions";
     options.allowDangerouslySkipPermissions = true;
-  } else {
-    // Use canUseTool callback to route permission requests to Anvil
-    options.canUseTool = async (toolName, input, opts) => {
-      const description = toolName === "Bash"
-        ? (input.command || "").slice(0, 200)
-        : toolName === "Edit" || toolName === "Write" || toolName === "Read"
-          ? (input.file_path || "")
-          : JSON.stringify(input).slice(0, 200);
+  } else if (permState.mode) {
+    options.permissionMode = permState.mode;
+  }
+  // else: no explicit permissionMode — SDK uses its default
+
+  // Always register canUseTool to route permission decisions through Anvil UI.
+  // For bypassPermissions, auto-allow everything without prompting.
+  // For acceptEdits, auto-allow file-editing tools and prompt for the rest.
+  // For plan/default, prompt for everything.
+  options.canUseTool = async (toolName, input, opts) => {
+    try {
+      log(`canUseTool: tool=${toolName} mode=${permState.mode} toolUseId=${opts.toolUseID}`);
+      // Bypass mode: auto-allow everything
+      // updatedInput is required by the SDK's internal Zod schema — omitting it causes ZodError
+      // which silently denies ALL tools (the SDK catches the error and treats it as deny)
+      if (permState.mode === "bypassPermissions") {
+        log(`canUseTool: auto-allow (bypass) tool=${toolName}`);
+        return { behavior: "allow", updatedInput: {} };
+      }
+
+      // AcceptEdits mode: auto-allow file-editing tools
+      if (permState.mode === "acceptEdits" && ACCEPT_EDITS_TOOLS.has(toolName)) {
+        log(`canUseTool: auto-allow (acceptEdits) tool=${toolName}`);
+        return { behavior: "allow", updatedInput: {} };
+      }
+
+      let description;
+      try {
+        description = toolName === "Bash"
+          ? (input.command || "").slice(0, 200)
+          : toolName === "Edit" || toolName === "Write" || toolName === "Read"
+            ? (input.file_path || "")
+            : JSON.stringify(input).slice(0, 200);
+      } catch (err) {
+        log("DEBUG: JSON.stringify failed for tool input:", err.message);
+        description = "(unserializable input)";
+      }
 
       emit({
         evt: "permission",
@@ -97,6 +199,7 @@ async function handleCreate(cmd) {
       });
 
       // Wait for permission response from frontend (timeout after 5 minutes)
+      log(`canUseTool: waiting for user permission tool=${toolName} toolUseId=${opts.toolUseID}`);
       const result = await new Promise((resolve) => {
         const session = sessions.get(tabId);
         if (!session) {
@@ -108,15 +211,24 @@ async function handleCreate(cmd) {
             session.pendingPermission = null;
             resolve({ behavior: "deny", message: "Permission request timed out" });
           }
-        }, 300_000);
+        }, PERMISSION_TIMEOUT_MS);
         session.pendingPermission = {
           resolve: (val) => { clearTimeout(timeout); resolve(val); },
           toolUseId: opts.toolUseID,
         };
       });
+      log(`canUseTool: result tool=${toolName} behavior=${result.behavior}`);
       return result;
-    };
-  }
+    } catch (err) {
+      log(`canUseTool error for ${toolName}: ${err.message}\n${err.stack}`);
+      if (err.name === "ZodError" || err.message?.includes("Zod")) {
+        log(`canUseTool ZodError details: ${JSON.stringify(err.issues || err.errors || err, null, 2)}`);
+      }
+      emit({ evt: "error", tabId, code: "permission_error", message: `Permission check failed for ${toolName}` });
+      // Fail closed: errors in the permission gate must deny, not allow
+      return { behavior: "deny", message: `Internal error: ${err.message}` };
+    }
+  };
 
   if (allowedTools) {
     options.allowedTools = allowedTools;
@@ -125,6 +237,61 @@ async function handleCreate(cmd) {
   if (plugins && plugins.length > 0) {
     options.plugins = plugins.map(p => ({ type: 'local', path: p }));
   }
+
+  // Intercept AskUserQuestion tool to route to Anvil UI
+  options.hooks = {
+    ...(options.hooks || {}),
+    PreToolUse: [
+      ...(options.hooks?.PreToolUse || []),
+      {
+        matcher: /^AskUserQuestion$/,
+        hooks: [async (event) => {
+          const session = sessions.get(tabId);
+          if (!session) return { behavior: "deny", message: "Session not found" };
+
+          // Extract questions from the tool input
+          const questions = event.input?.questions;
+          if (!Array.isArray(questions) || questions.length === 0) {
+            return { behavior: "deny", message: "No questions provided" };
+          }
+
+          // Emit ask_user event to frontend
+          emit({
+            evt: "ask_user",
+            tabId,
+            questions: questions.map(q => ({
+              question: q.question || "",
+              header: q.header || "",
+              options: (q.options || []).map(o => ({
+                label: o.label || "",
+                description: o.description || "",
+                preview: o.preview || undefined,
+              })),
+              multiSelect: !!q.multiSelect,
+            })),
+          });
+
+          // Wait for user response from frontend (timeout 10 minutes — longer than
+          // permission's 5 min because multi-step wizard takes more time)
+          const askId = `ask-${Date.now()}-${++_askIdCounter}`;
+          const result = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+              if (session.pendingAskUser?.askId === askId) {
+                session.pendingAskUser = null;
+                resolve({ behavior: "deny", message: "AskUserQuestion timed out — no user response" });
+              }
+            }, ASK_USER_TIMEOUT_MS);
+            session.pendingAskUser = {
+              resolve: (val) => { clearTimeout(timeout); resolve(val); },
+              questions,
+              askId,
+            };
+          });
+          return result;
+        }],
+      },
+    ],
+  };
 
   // Resume or fork if specified
   if (cmd.sessionId) {
@@ -140,6 +307,8 @@ async function handleCreate(cmd) {
     abortController,
     inputQueue,
     pendingPermission: null,
+    pendingAskUser: null,
+    permState,
   };
 
   // Start the query
@@ -149,6 +318,11 @@ async function handleCreate(cmd) {
   });
   session.query = q;
   sessions.set(tabId, session);
+
+  // Save config for interrupt-resume
+  session._config = { cwd: cwd || process.cwd(), model, effort, systemPrompt, permMode, skipPerms, allowedTools, plugins };
+  session._sessionId = "";
+  session._interrupted = false;
 
   session._pushInput = (text) => {
     if (inputResolve) {
@@ -162,9 +336,14 @@ async function handleCreate(cmd) {
 
   // Consume the async generator and emit events
   consumeQuery(tabId, q, session).catch((err) => {
+    // Skip if this session was interrupted (handleInterrupt manages lifecycle)
+    if (session._interrupted) return;
     // Only report if we're still the active session
     if (sessions.get(tabId) === session) {
-      log(`Error in session ${tabId}:`, err.message);
+      log(`Error in session ${tabId}: ${err.message}\n${err.stack}`);
+      if (err.name === "ZodError" || err.message?.includes("Zod")) {
+        log(`Session ZodError details: ${JSON.stringify(err.issues || err.errors || err, null, 2)}`);
+      }
       emit({ evt: "error", tabId, code: "query_error", message: err.message });
       emit({ evt: "exit", tabId, code: 1 });
       sessions.delete(tabId);
@@ -204,14 +383,20 @@ async function consumeQuery(tabId, q, sessionRef) {
                 input: block.input,
                 toolUseId: block.id,
               });
-              // Intercept TodoWrite/TodoRead to forward structured todo events
-              if (block.name === "TodoWrite" || block.name === "TodoRead") {
+              // Intercept TodoWrite to forward structured todo events
+              if (block.name === "TodoWrite") {
                 try {
                   const todoInput = typeof block.input === "string" ? JSON.parse(block.input) : block.input;
-                  if (todoInput.todos || todoInput.items) {
-                    emit({ evt: "todo", tabId, todos: todoInput.todos || todoInput.items });
+                  if (todoInput.todos) {
+                    const mapped = todoInput.todos.map((t, i) => ({
+                      id: `todo-${i}`,
+                      title: t.content || t.title || "",
+                      status: t.status,
+                      category: t.activeForm || t.category || undefined,
+                    }));
+                    emit({ evt: "todo", tabId, todos: mapped });
                   }
-                } catch { /* ignore parse errors */ }
+                } catch (err) { log("DEBUG: TodoWrite parse error:", err.message); }
               }
             } else if (block.type === "thinking") {
               if (!hasStreamedText) {
@@ -223,7 +408,7 @@ async function consumeQuery(tabId, q, sessionRef) {
           hasStreamedText = false;
           // Check for errors
           if (msg.error) {
-            emit({ evt: "error", tabId, code: msg.error, message: `Assistant error: ${msg.error}` });
+            emit({ evt: "error", tabId, code: msg.error, message: msg.error_message || msg.error });
           }
           break;
         }
@@ -235,10 +420,10 @@ async function consumeQuery(tabId, q, sessionRef) {
             const delta = event.delta;
             if (delta?.type === "text_delta") {
               hasStreamedText = true;
-              emit({ evt: "assistant", tabId, text: delta.text, streaming: true });
+              emitStreamingText(tabId, delta.text);
             } else if (delta?.type === "thinking_delta") {
               hasStreamedText = true;
-              emit({ evt: "thinking", tabId, text: delta.thinking || "" });
+              emitThinkingDelta(tabId, delta.thinking || "");
             }
           }
           break;
@@ -280,6 +465,7 @@ async function consumeQuery(tabId, q, sessionRef) {
           if (msg.subtype === "init") {
             const sid = msg.session_id || msg.data?.session_id || "";
             if (sid) {
+              session._sessionId = sid;
               emit({ evt: "status", tabId, status: "init", model: "", sessionId: sid });
             }
             // Fetch available commands and agents from the SDK
@@ -294,6 +480,39 @@ async function consumeQuery(tabId, q, sessionRef) {
             }
           } else if (msg.subtype === "status") {
             emit({ evt: "status", tabId, status: msg.status || "idle", model: "" });
+          } else if (msg.subtype === "task_started") {
+            emit({
+              evt: "task_started",
+              tabId,
+              taskId: msg.task_id,
+              description: msg.description || "",
+              taskType: msg.task_type || "",
+            });
+          } else if (msg.subtype === "task_progress") {
+            const usage = msg.usage || {};
+            emit({
+              evt: "task_progress",
+              tabId,
+              taskId: msg.task_id,
+              description: msg.description || "",
+              totalTokens: usage.total_tokens || 0,
+              toolUses: usage.tool_uses || 0,
+              durationMs: usage.duration_ms || 0,
+              lastToolName: msg.last_tool_name || "",
+              summary: msg.summary || "",
+            });
+          } else if (msg.subtype === "task_notification") {
+            const usage = msg.usage || {};
+            emit({
+              evt: "task_notification",
+              tabId,
+              taskId: msg.task_id,
+              status: msg.status || "completed",
+              summary: msg.summary || "",
+              totalTokens: usage.total_tokens || 0,
+              toolUses: usage.tool_uses || 0,
+              durationMs: usage.duration_ms || 0,
+            });
           }
           break;
         }
@@ -321,6 +540,7 @@ async function consumeQuery(tabId, q, sessionRef) {
 
         case "rate_limit_event": {
           const info = msg.rate_limit_info;
+          if (!info) break;
           if (info.status === "rejected") {
             emit({
               evt: "error",
@@ -347,9 +567,12 @@ async function consumeQuery(tabId, q, sessionRef) {
   } finally {
     // Query finished — only clean up if WE are still the active session.
     // A replacement session (from StrictMode re-mount) may have taken over.
+    // Skip cleanup if this session was interrupted (handleInterrupt manages lifecycle)
+    if (sessionRef._interrupted) return;
     const current = sessions.get(tabId);
     if (current && current === sessionRef) {
       sessions.delete(tabId);
+      autocompleteTimestamps.delete(tabId);
       emit({ evt: "exit", tabId, code: 0 });
     }
   }
@@ -368,6 +591,9 @@ function handleKill(cmd, silent = false) {
   const session = sessions.get(cmd.tabId);
   if (!session) return;
 
+  // Flush any batched streaming data before tearing down
+  flushTab(cmd.tabId);
+
   // Signal kill to input stream
   session._pushInput(null);
   session.abortController.abort();
@@ -376,6 +602,11 @@ function handleKill(cmd, silent = false) {
   if (session.pendingPermission) {
     session.pendingPermission.resolve({ behavior: "deny", message: "Session killed" });
     session.pendingPermission = null;
+  }
+  // Resolve any pending AskUserQuestion
+  if (session.pendingAskUser) {
+    session.pendingAskUser.resolve({ behavior: "deny", message: "Session killed" });
+    session.pendingAskUser = null;
   }
 
   session.query?.close();
@@ -393,17 +624,105 @@ function handlePermissionResponse(cmd) {
     return;
   }
 
+  // Validate toolUseId matches to prevent approving the wrong tool in a race
+  if (cmd.toolUseId && session.pendingPermission.toolUseId !== cmd.toolUseId) {
+    log(`Permission response toolUseId mismatch: expected=${session.pendingPermission.toolUseId} got=${cmd.toolUseId}`);
+    return;
+  }
+
   const { resolve } = session.pendingPermission;
   session.pendingPermission = null;
 
   if (cmd.allow) {
-    const result = { behavior: "allow" };
+    // updatedInput is required by the SDK's internal Zod schema — omitting it causes ZodError
+    const result = { behavior: "allow", updatedInput: {} };
     if (Array.isArray(cmd.updatedPermissions) && cmd.updatedPermissions.length > 0) {
       result.updatedPermissions = cmd.updatedPermissions;
     }
     resolve(result);
   } else {
     resolve({ behavior: "deny", message: "Denied by user" });
+  }
+}
+
+function handleAskUserResponse(cmd) {
+  const session = sessions.get(cmd.tabId);
+  if (!session?.pendingAskUser) {
+    log(`No pending AskUserQuestion for tab ${cmd.tabId}`);
+    return;
+  }
+
+  const { resolve, questions } = session.pendingAskUser;
+  session.pendingAskUser = null;
+
+  const answers = cmd.answers || {};
+
+  // Format the answers as a human-readable summary for Claude
+  const answerLines = questions.map((q, i) => {
+    const answer = (answers[String(i)] || "(no answer)").replace(/[\r\n]/g, " ");
+    const header = (q.header || "").replace(/[\r\n]/g, " ");
+    return `${header}: ${answer}`;
+  });
+
+  // Deny the tool (prevents SDK from trying TUI rendering) and inject a system message
+  // with the user's answers so Claude sees them as if the tool succeeded.
+  resolve({
+    behavior: "deny",
+    message: `User answered the questions via Anvil UI:\n${answerLines.join("\n")}`,
+  });
+}
+
+// Guard against re-entrant interrupts (rapid Ctrl+C)
+const _interruptingTabs = new Set();
+
+async function handleInterrupt(cmd) {
+  const tabId = cmd.tabId;
+  if (_interruptingTabs.has(tabId)) return;
+
+  const session = sessions.get(tabId);
+  if (!session) {
+    log(`No session to interrupt for tab ${tabId}`);
+    return;
+  }
+
+  _interruptingTabs.add(tabId);
+  try {
+    const sessionId = session._sessionId || "";
+    const config = session._config || {};
+
+    // Mark session as interrupted so consumeQuery won't emit spurious exit
+    session._interrupted = true;
+
+    // Flush any pending batched streaming data
+    flushTab(tabId);
+
+    // Abort the current query
+    session._pushInput(null);
+    session.abortController.abort();
+
+    // Resolve any pending permission or askUser
+    if (session.pendingPermission) {
+      session.pendingPermission.resolve({ behavior: "deny", message: "Interrupted" });
+      session.pendingPermission = null;
+    }
+    if (session.pendingAskUser) {
+      session.pendingAskUser.resolve({ behavior: "deny", message: "Interrupted" });
+      session.pendingAskUser = null;
+    }
+
+    session.query?.close();
+    sessions.delete(tabId);
+    autocompleteTimestamps.delete(tabId);
+
+    emit({ evt: "interrupted", tabId, sessionId });
+
+    // Resume same session with validated config
+    if (sessionId) {
+      const safePerm = VALID_PERM_MODES.has(config.permMode) ? config.permMode : "plan";
+      await handleCreate({ tabId, sessionId, ...config, permMode: safePerm });
+    }
+  } finally {
+    _interruptingTabs.delete(tabId);
   }
 }
 
@@ -419,6 +738,18 @@ async function handleSetModel(cmd) {
   } catch (err) {
     emit({ evt: "error", tabId: cmd.tabId, code: "set_model_error", message: err.message });
   }
+}
+
+function handleSetPermMode(cmd) {
+  const session = sessions.get(cmd.tabId);
+  if (!session?.permState) {
+    emit({ evt: "error", tabId: cmd.tabId, code: "not_found", message: "Session not found" });
+    return;
+  }
+  const newMode = VALID_PERM_MODES.has(cmd.permMode) ? cmd.permMode : "plan";
+  session.permState.mode = newMode;
+  if (session._config) session._config.permMode = newMode;
+  emit({ evt: "status", tabId: cmd.tabId, status: "perm_mode_changed", permMode: newMode });
 }
 
 async function handleRefreshCommands(cmd) {
@@ -447,11 +778,11 @@ async function handleListSessions(cmd) {
     if (cmd.limit) options.limit = cmd.limit;
     if (cmd.offset) options.offset = cmd.offset;
 
-    const sessions = await listSessions(options);
+    const sessionList = await listSessions(options);
     emit({
       evt: "sessions",
       tabId: cmd.tabId,
-      list: sessions.map((s) => ({
+      list: sessionList.map((s) => ({
         id: s.sessionId,
         summary: s.summary,
         lastModified: s.lastModified,
@@ -509,8 +840,8 @@ function readClaudeOAuthToken() {
     if (oauth?.accessToken && oauth.expiresAt > Date.now()) {
       return { token: oauth.accessToken, expiresAt: oauth.expiresAt };
     }
-  } catch {
-    // Credentials file not found or unreadable
+  } catch (err) {
+    log("DEBUG: OAuth credentials read failed:", err.message);
   }
   return null;
 }
@@ -627,7 +958,8 @@ async function handleAutocomplete(cmd) {
     try {
       const parsed = JSON.parse(text);
       suggestions = Array.isArray(parsed.completions) ? parsed.completions.filter(s => typeof s === "string").slice(0, 3) : [];
-    } catch {
+    } catch (err) {
+      log("DEBUG: autocomplete JSON parse failed:", err.message);
       suggestions = [];
     }
 
@@ -646,8 +978,8 @@ rl.on("line", async (line) => {
   let cmd;
   try {
     cmd = JSON.parse(line);
-  } catch {
-    log("Invalid JSON:", line);
+  } catch (err) {
+    log("Invalid JSON:", line, "error:", err.message);
     return;
   }
 
@@ -666,14 +998,23 @@ rl.on("line", async (line) => {
         cmd.fork = true;
         await handleCreate(cmd);
         break;
+      case "interrupt":
+        await handleInterrupt(cmd);
+        break;
       case "kill":
         handleKill(cmd);
         break;
       case "permission_response":
         handlePermissionResponse(cmd);
         break;
+      case "ask_user_response":
+        handleAskUserResponse(cmd);
+        break;
       case "set_model":
         await handleSetModel(cmd);
+        break;
+      case "set_perm_mode":
+        handleSetPermMode(cmd);
         break;
       case "list_sessions":
         await handleListSessions(cmd);
@@ -701,6 +1042,9 @@ rl.on("line", async (line) => {
 
 rl.on("close", () => {
   log("stdin closed, shutting down");
+  // Flush any pending batched streaming data
+  if (_batchTimer) { clearTimeout(_batchTimer); _batchTimer = null; }
+  _flushBatch();
   // Kill all active sessions
   for (const [tabId, session] of sessions) {
     session._pushInput(null);
@@ -712,11 +1056,16 @@ rl.on("close", () => {
 });
 
 process.on("uncaughtException", (err) => {
-  log("Uncaught exception:", err.message, err.stack);
+  log(`FATAL uncaughtException: ${err.message}\n${err.stack}`);
+  if (err.name === "ZodError" || err.message?.includes("Zod")) {
+    log(`ZodError details: ${JSON.stringify(err.issues || err.errors || err, null, 2)}`);
+  }
+  process.exit(1);
 });
 
-process.on("unhandledRejection", (err) => {
-  log("Unhandled rejection:", err);
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? `${reason.message}\n${reason.stack}` : String(reason);
+  log(`FATAL unhandledRejection: ${msg}`);
 });
 
 log("Anvil sidecar started");
