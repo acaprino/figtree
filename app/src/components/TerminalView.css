@@ -51,10 +51,18 @@
   padding: var(--space-1) 0;
 }
 
-.tv-activity-sigil {
-  color: var(--overlay0);
-  font-weight: 500;
+.tv-activity-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
   flex-shrink: 0;
+  animation: tv-spin 0.8s linear infinite;
+}
+
+@keyframes tv-spin {
+  to { transform: rotate(360deg); }
 }
 
 .tv-activity-label {
