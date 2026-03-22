@@ -330,7 +330,7 @@ export default memo(function TerminalView(props: SessionViewProps) {
                 case "ask":
                   return <AskQuestionCard questions={msg.questions} resolved={msg.resolved} answers={msg.answers} onRespond={(answers) => handleAskUserRespond(msg.id, answers)} />;
                 case "thinking":
-                  if (hideThinking) return null;
+                  if (msg.ended) return null;
                   return <TermThinkingLine text={msg.text} ended={msg.ended} />;
                   return null;
                 case "error":
