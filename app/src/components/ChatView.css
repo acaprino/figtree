@@ -799,6 +799,36 @@
 }
 
 /* ── ThinkingSpinner: compact spinner when thinking is hidden ─────── */
+
+/* Working spinner (processing, no streaming/thinking) */
+.chat-working-spinner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.chat-working-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: chat-spin 0.8s linear infinite;
+}
+
+@keyframes chat-spin {
+  to { transform: rotate(360deg); }
+}
+
+.chat-working-label {
+  color: var(--text-dim);
+  font-size: var(--text-sm);
+  font-style: italic;
+  opacity: 0.7;
+}
 .thinking-spinner {
   display: flex;
   align-items: center;

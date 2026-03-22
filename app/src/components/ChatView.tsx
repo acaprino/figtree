@@ -412,6 +412,13 @@ export default memo(function ChatView(props: SessionViewProps) {
             <MessageBubble text={streamingTextRef.current} streaming={true} />
           </div>
         )}
+        {/* Working spinner when processing with no visible output */}
+        {inputState === "processing" && !streamingIdRef.current && !thinkingIdRef.current && !hasUnresolvedPermission && messages.length > 0 && (
+          <div className="chat-working-spinner">
+            <span className="chat-working-dot" />
+            <span className="chat-working-label">Working...</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       </div>
