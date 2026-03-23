@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { SystemPrompt } from "./types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTabManager } from "./hooks/useTabManager";
+import { sanitizeFontName } from "./themes";
 import { ProjectsProvider, useProjectsContext } from "./contexts/ProjectsContext";
 import TabBar from "./components/TabBar";
 import TitleBar from "./components/TitleBar";
@@ -96,10 +97,21 @@ function AppContent() {
   }, [closeTab]);
 
   // Load bundled marketplace plugin paths (Anvil-exclusive by default)
-  const [pluginPaths, setPluginPaths] = useState<string[]>([]);
+  const [allPluginPaths, setAllPluginPaths] = useState<string[]>([]);
+  const [pluginsLoaded, setPluginsLoaded] = useState(false);
   useEffect(() => {
-    invoke<string[]>("get_marketplace_plugins").then(setPluginPaths).catch(console.error);
+    invoke<string[]>("get_marketplace_plugins")
+      .then((paths) => { setAllPluginPaths(paths); setPluginsLoaded(true); })
+      .catch((e) => { console.error(e); setPluginsLoaded(true); });
   }, []);
+  const pluginPaths = useMemo(() => {
+    const disabled = settings?.disabled_plugins ?? [];
+    if (disabled.length === 0) return allPluginPaths;
+    return allPluginPaths.filter((p) => {
+      const name = p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "";
+      return !disabled.includes(name);
+    });
+  }, [allPluginPaths, settings?.disabled_plugins]);
 
   const systemPrompt = useMemo(() => {
     const activeIds: string[] = settings?.active_prompt_ids ?? [];
@@ -128,8 +140,8 @@ function AppContent() {
   // Sync font settings to CSS custom properties so GUI inherits them
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--font-mono", `'${fontFamily}', 'Consolas', monospace`);
-    root.style.setProperty("--font-chat", `'${chatFontFamily}', 'Segoe UI', system-ui, sans-serif`);
+    root.style.setProperty("--font-mono", `'${sanitizeFontName(fontFamily)}', 'Consolas', monospace`);
+    root.style.setProperty("--font-chat", `'${sanitizeFontName(chatFontFamily)}', 'Segoe UI', system-ui, sans-serif`);
     root.style.setProperty("--text-base", `${fontSize}px`);
     root.style.setProperty("--text-chat", `${chatFontSize}px`);
   }, [fontFamily, chatFontFamily, fontSize, chatFontSize]);
@@ -455,6 +467,7 @@ function AppContent() {
                       isActive={isActive}
                       settings={settings}
                       onUpdate={updateSettings}
+                      allPluginPaths={allPluginPaths}
                     />
                   </Suspense>
                 </ErrorBoundary>
@@ -469,7 +482,7 @@ function AppContent() {
                     />
                   </Suspense>
                 </ErrorBoundary>
-              ) : tab.type === "agent" ? (
+              ) : tab.type === "agent" && pluginsLoaded ? (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
                   <AgentView
                     key={`${tab.id}-${tab.modelIdx ?? 0}-${tab.effortIdx ?? 0}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}

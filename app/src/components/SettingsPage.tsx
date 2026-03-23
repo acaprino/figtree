@@ -2,6 +2,7 @@ import { memo, useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Switch } from "radix-ui";
 import { Settings, SORT_ORDERS } from "../types";
+import { sanitizeFontName } from "../themes";
 import { useThemes } from "../contexts/ThemesContext";
 import SegmentedControl from "./SegmentedControl";
 import "./SettingsPage.css";
@@ -9,7 +10,7 @@ import "./SettingsPage.css";
 type DirMode = "container" | "single";
 type DirEntry = { path: string; mode: DirMode };
 
-type SettingsTab = "themes" | "fonts" | "projects" | "behavior";
+type SettingsTab = "themes" | "fonts" | "projects" | "behavior" | "advanced";
 
 const FONT_OPTIONS = [
   "Cascadia Code",
@@ -43,6 +44,7 @@ const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: "fonts", label: "Fonts" },
   { id: "projects", label: "Projects" },
   { id: "behavior", label: "Behavior" },
+  { id: "advanced", label: "Advanced" },
 ];
 
 interface SettingsPageProps {
@@ -51,9 +53,10 @@ interface SettingsPageProps {
   isActive: boolean;
   settings: Settings;
   onUpdate: (updates: Partial<Settings>) => void;
+  allPluginPaths: string[];
 }
 
-export default memo(function SettingsPage({ tabId, onRequestClose, isActive, settings, onUpdate }: SettingsPageProps) {
+export default memo(function SettingsPage({ tabId, onRequestClose, isActive, settings, onUpdate, allPluginPaths }: SettingsPageProps) {
   const THEMES = useThemes();
   const [activeTab, setActiveTab] = useState<SettingsTab>("themes");
 
@@ -91,6 +94,10 @@ export default memo(function SettingsPage({ tabId, onRequestClose, isActive, set
   const [newDirMode, setNewDirMode] = useState<DirMode>("container");
   const [dirsDirty, setDirsDirty] = useState(false);
   const dirInputRef = useRef<HTMLInputElement>(null);
+
+  // Ref for disabled_plugins so rapid toggles always read the freshest value
+  const disabledPluginsRef = useRef(settings.disabled_plugins ?? []);
+  disabledPluginsRef.current = settings.disabled_plugins ?? [];
 
   // Apply font changes live — skip mount (initial values match settings)
   const onUpdateRef = useRef(onUpdate);
@@ -224,7 +231,7 @@ export default memo(function SettingsPage({ tabId, onRequestClose, isActive, set
                     </div>
                   </div>
                   <div className="font-preview" style={{
-                    fontFamily: `'${fontFamily}', 'Consolas', monospace`,
+                    fontFamily: `'${sanitizeFontName(fontFamily)}', 'Consolas', monospace`,
                     fontSize: `${fontSize}px`,
                   }}>
                     {"fn main() {"}<br/>
@@ -264,7 +271,7 @@ export default memo(function SettingsPage({ tabId, onRequestClose, isActive, set
                     </div>
                   </div>
                   <div className="font-preview" style={{
-                    fontFamily: `'${chatFontFamily}', 'Segoe UI', system-ui, sans-serif`,
+                    fontFamily: `'${sanitizeFontName(chatFontFamily)}', 'Segoe UI', system-ui, sans-serif`,
                     fontSize: `${chatFontSize}px`,
                   }}>
                     The quick brown fox jumps over the lazy dog.<br/>
@@ -393,6 +400,45 @@ export default memo(function SettingsPage({ tabId, onRequestClose, isActive, set
                     </Switch.Root>
                   </div>
                   <p className="modal-hint">When ON, anvil-toolset plugins are also available in standalone Claude Code CLI sessions.</p>
+        </div>
+          )}
+
+          {activeTab === "advanced" && (
+                    <div className="settings-panel" key="advanced">
+                      <h3 className="settings-section__title">Plugins</h3>
+                  <p className="modal-hint" style={{ marginTop: 0, marginBottom: "var(--space-3)" }}>
+                    Toggle plugins on/off. Disabling a plugin also disables its hooks. Changes apply to new sessions.
+                  </p>
+                  <div className="plugin-list">
+                    {allPluginPaths.length === 0 ? (
+                      <p className="modal-hint">No plugins found.</p>
+                    ) : (
+                      allPluginPaths.map((pluginPath) => {
+                        const name = pluginPath.replace(/[\\/]+$/, "").split(/[\\/]/).pop() ?? "";
+                        const disabled = settings.disabled_plugins ?? [];
+                        const isEnabled = !disabled.includes(name);
+                        return (
+                          <div key={name} className="plugin-row">
+                            <span className="plugin-name">{name}</span>
+                            <Switch.Root
+                              className="settings-switch"
+                              checked={isEnabled}
+                              onCheckedChange={(checked) => {
+                                const prev = disabledPluginsRef.current;
+                                const next = checked
+                                  ? prev.filter((n) => n !== name)
+                                  : [...prev, name];
+                                disabledPluginsRef.current = next;
+                                onUpdate({ disabled_plugins: next });
+                              }}
+                            >
+                              <Switch.Thumb className="settings-switch-thumb" />
+                            </Switch.Root>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
         </div>
           )}
         </div>

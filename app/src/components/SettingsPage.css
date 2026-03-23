@@ -177,3 +177,29 @@
   transform: translateX(19px);
   background: var(--green);
 }
+
+/* Plugin list (Advanced tab) */
+.plugin-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.plugin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.plugin-row + .plugin-row {
+  border-top: 1px solid color-mix(in srgb, var(--surface) 50%, transparent);
+}
+
+.plugin-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
