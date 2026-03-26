@@ -11,4 +11,9 @@ export interface SessionViewProps {
   controller: SessionController;
   onConfigChange?: (update: { modelIdx?: number; effortIdx?: number; permModeIdx?: number }) => void;
   onProcessingChange?: (isProcessing: boolean) => void;
+  /** Session panel state (passed from App) */
+  sessionPanelOpen?: boolean;
+  onCloseSessionPanel?: () => void;
+  onResumeSession?: (sessionId: string, cwd: string, inNewTab?: boolean) => void;
+  onForkSession?: (sessionId: string, cwd: string, inNewTab?: boolean) => void;
 }

@@ -9,6 +9,10 @@ interface AgentViewProps extends SessionControllerProps {
   hideThinking?: boolean;
   onProcessingChange?: (isProcessing: boolean) => void;
   onConfigChange?: (tabId: string, update: ConfigUpdate) => void;
+  sessionPanelOpen?: boolean;
+  onCloseSessionPanel?: () => void;
+  onResumeSession?: (sessionId: string, cwd: string, inNewTab?: boolean) => void;
+  onForkSession?: (sessionId: string, cwd: string, inNewTab?: boolean) => void;
 }
 
 /**
@@ -16,7 +20,9 @@ interface AgentViewProps extends SessionControllerProps {
  * do NOT destroy the active agent session.
  */
 export default memo(function AgentView({
-  hideThinking, onProcessingChange, onConfigChange, ...controllerProps
+  hideThinking, onProcessingChange, onConfigChange,
+  sessionPanelOpen, onCloseSessionPanel, onResumeSession, onForkSession,
+  ...controllerProps
 }: AgentViewProps) {
   const controller = useSessionController(controllerProps);
 
@@ -35,6 +41,10 @@ export default memo(function AgentView({
       controller={controller}
       onConfigChange={handleConfigChange}
       onProcessingChange={onProcessingChange}
+      sessionPanelOpen={sessionPanelOpen}
+      onCloseSessionPanel={onCloseSessionPanel}
+      onResumeSession={onResumeSession}
+      onForkSession={onForkSession}
     />
   );
 });

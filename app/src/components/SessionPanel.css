@@ -15,12 +15,9 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Horizontal mode: panel is a horizontal bar below tab-bar */
+/* Horizontal mode: panel is vertical on the left of content (border set in App.css) */
 .app:not(.vertical-tabs) .session-panel {
   border-right: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--overlay0) 30%, transparent);
-  max-height: 200px;
-  min-height: 120px;
 }
 
 .session-panel__header {
@@ -85,14 +82,7 @@
   overflow-x: hidden;
 }
 
-/* Horizontal mode: list scrolls horizontally */
-.app:not(.vertical-tabs) .session-panel__list {
-  display: flex;
-  flex-direction: row;
-  overflow-x: auto;
-  overflow-y: hidden;
-  gap: 1px;
-}
+/* Horizontal mode: list stays vertical (same as vertical-tabs mode) */
 
 .session-panel__empty {
   padding: var(--space-4) var(--space-2);
@@ -108,14 +98,7 @@
   position: relative;
 }
 
-/* Horizontal mode: items are fixed-width cards */
-.app:not(.vertical-tabs) .session-item {
-  min-width: 220px;
-  max-width: 280px;
-  border-bottom: none;
-  border-right: 1px solid color-mix(in srgb, var(--overlay0) 10%, transparent);
-  flex-shrink: 0;
-}
+/* Horizontal mode: items stay vertical list (same as vertical-tabs mode) */
 
 .session-item:hover {
   background: var(--hover-overlay-subtle);

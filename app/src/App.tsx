@@ -364,31 +364,19 @@ function AppContent() {
           )}
         </>
       ) : (
-        <>
-          <TabBar
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onActivate={activateTab}
-            onClose={safeCloseTab}
-            onAdd={addTabAndResetFilter}
-            onSaveToProjects={handleSaveToProjects}
-            onToggleAbout={toggleAboutTab}
-            onToggleUsage={toggleUsageTab}
-            onToggleSessions={toggleSessionPanel}
-          />
-          {sessionPanelOpen && (
-            <Suspense fallback={null}>
-              <SessionPanel
-                projectPath={activeProjectPath}
-                isOpen={sessionPanelOpen}
-                onClose={toggleSessionPanel}
-                onResumeSession={handleResumeSession}
-                onForkSession={handleForkSession}
-              />
-            </Suspense>
-          )}
-        </>
+        <TabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onActivate={activateTab}
+          onClose={safeCloseTab}
+          onAdd={addTabAndResetFilter}
+          onSaveToProjects={handleSaveToProjects}
+          onToggleAbout={toggleAboutTab}
+          onToggleUsage={toggleUsageTab}
+          onToggleSessions={toggleSessionPanel}
+        />
       )}
+      <div className="main-row">
       <div className="tab-content">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
@@ -505,6 +493,10 @@ function AppContent() {
                     resumeSessionId={tab.resumeSessionId}
                     forkSessionId={tab.forkSessionId}
                     onConfigChange={handleConfigChange}
+                    sessionPanelOpen={sessionPanelOpen}
+                    onCloseSessionPanel={toggleSessionPanel}
+                    onResumeSession={handleResumeSession}
+                    onForkSession={handleForkSession}
                   />
                 </ErrorBoundary>
               ) : (
@@ -513,6 +505,7 @@ function AppContent() {
             </div>
           );
         })}
+      </div>
       </div>
       {showShortcuts && <ShortcutsOverlay onClose={() => setShowShortcuts(false)} />}
       {settings && !settings.onboarding_seen && (

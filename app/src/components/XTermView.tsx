@@ -25,6 +25,7 @@ import { useThemes } from "../contexts/ThemesContext";
 import { useProjectsContext } from "../contexts/ProjectsContext";
 import { fmtTokens } from "../utils/format";
 import RightSidebar from "./chat/RightSidebar";
+import SessionPanel from "./SessionPanel";
 import { IconPlus, IconSidebar } from "./Icons";
 
 export default memo(function XTermView(props: SessionViewProps) {
@@ -32,6 +33,7 @@ export default memo(function XTermView(props: SessionViewProps) {
     modelIdx, effortIdx, permModeIdx, isActive,
     controller: ctrl,
     onConfigChange,
+    sessionPanelOpen, onCloseSessionPanel, onResumeSession, onForkSession,
   } = props;
 
   const {
@@ -271,6 +273,15 @@ export default memo(function XTermView(props: SessionViewProps) {
           className="xterm-container"
           style={{ flex: 1, overflow: "hidden" }}
         />
+        {sessionPanelOpen && onCloseSessionPanel && onResumeSession && onForkSession && (
+          <SessionPanel
+            projectPath={projectPath}
+            isOpen={sessionPanelOpen}
+            onClose={onCloseSessionPanel}
+            onResumeSession={onResumeSession}
+            onForkSession={onForkSession}
+          />
+        )}
         {sidebarOpen && (
           <RightSidebar
             messages={deferredMessages}

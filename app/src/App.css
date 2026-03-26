@@ -97,11 +97,19 @@ button, input, select {
   min-height: 320px;
 }
 
+/* Main row: wraps tab-content + optional session panel */
+.main-row {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
 .tab-content {
   flex: 1;
   overflow: hidden;
   position: relative;
 }
+
 
 /* ── Vertical tabs mode ── */
 .app.vertical-tabs {
@@ -131,12 +139,17 @@ button, input, select {
   grid-column: 2;
 }
 
-/* Tab content fills last column */
-.app.vertical-tabs .tab-content {
+/* Main row fills remaining columns */
+.app.vertical-tabs .main-row {
   grid-row: 2;
   grid-column: -2 / -1;
   min-width: 400px;
   min-height: 0;
+}
+
+/* In vertical-tabs mode, main-row is just a simple container (no flex row needed) */
+.app.vertical-tabs .tab-content {
+  height: 100%;
 }
 
 .app.vertical-tabs .tab-bar {
