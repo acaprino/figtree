@@ -1224,6 +1224,10 @@ async function handleSetModel(cmd: SetModelCommand): Promise<void> {
     emit({ evt: "error", tabId: cmd.tabId, code: "not_found", message: "Session not found" });
     return;
   }
+  if (typeof cmd.model !== "string" || !/^[a-zA-Z0-9._\-[\]]{1,100}$/.test(cmd.model)) {
+    emit({ evt: "error", tabId: cmd.tabId, code: "set_model_error", message: "Invalid model identifier" });
+    return;
+  }
   try {
     await session.query.setModel(cmd.model);
     emit({ evt: "status", tabId: cmd.tabId, status: "model_changed", model: cmd.model });

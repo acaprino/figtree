@@ -9,7 +9,7 @@
  * - useAgentTasks — agent task lifecycle + rAF-batched progress
  */
 import { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, interruptAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages, setAgentPermMode } from "./useAgentSession";
+import { spawnAgent, resumeAgent, forkAgent, sendAgentMessage, killAgent, interruptAgent, respondPermission, respondAskUser, refreshCommands, runClaudeCommand, getAgentMessages, setAgentPermMode, setAgentModel } from "./useAgentSession";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { PERM_MODES, DEFAULT_MODELS, DEFAULT_EFFORTS } from "../types";
 import type { AgentEvent, Attachment, ChatMessage, PermissionSuggestion, SlashCommand, AgentInfoSDK, ModelInfoSDK } from "../types";
@@ -77,6 +77,12 @@ export type DisplayItem = ChatMessage | ToolGroupItem;
 // This map coordinates deferred kills across mount/unmount cycles
 // (StrictMode double-mount and navigation remounts).
 const _pendingKills = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Resolve SDK models to a UI-friendly list, falling back to hardcoded defaults. */
+function resolveModels(sdkModels: ModelInfoSDK[]): readonly { display: string; id: string }[] {
+  if (sdkModels.length === 0) return DEFAULT_MODELS as readonly { display: string; id: string }[];
+  return sdkModels.map(m => ({ display: m.displayName, id: m.value }));
+}
 
 // ── Hook Props ───────────────────────────────────────────────────
 export interface SessionControllerProps {
@@ -213,10 +219,9 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     let cancelled = false;
 
     // Use SDK models/efforts if available, fallback to hardcoded defaults
-    const effectiveModels = sdkModels.length > 0
-      ? sdkModels.map(m => ({ display: m.displayName, id: m.value }))
-      : (DEFAULT_MODELS as readonly { display: string; id: string }[]);
-    const modelId = effectiveModels[modelIdx]?.id || "";
+    const effectiveModels = resolveModels(sdkModels);
+    const clampedModelIdx = Math.min(modelIdx, effectiveModels.length - 1);
+    const modelId = clampedModelIdx >= 0 ? effectiveModels[clampedModelIdx].id : "";
     const effectiveEfforts = sdkModels.length > 0
       ? (() => { const m = sdkModels.find(s => s.value === modelId); return m?.supportedEffortLevels?.length ? m.supportedEffortLevels : DEFAULT_EFFORTS; })()
       : DEFAULT_EFFORTS;
@@ -531,6 +536,20 @@ export function useSessionController(props: SessionControllerProps): SessionCont
     setAgentPermMode(tabId, permMode).catch((err) => console.debug("[session] setAgentPermMode failed:", err));
   }, [permModeIdx, tabId]);
 
+  // ── Sync model changes to sidecar without remount ──────────────
+  // Guard on resolved model ID (not index) so the effect fires when
+  // sdkModels arrives and remaps what an index means.
+  const lastModelIdRef = useRef("");
+  useEffect(() => {
+    const effectiveModels = resolveModels(sdkModels);
+    const clampedIdx = Math.min(modelIdx, effectiveModels.length - 1);
+    const newModelId = clampedIdx >= 0 ? effectiveModels[clampedIdx].id : "";
+    if (newModelId === lastModelIdRef.current) return;
+    lastModelIdRef.current = newModelId;
+    if (!agentStartedRef.current || !newModelId) return;
+    setAgentModel(tabId, newModelId).catch((err) => console.debug("[session] setAgentModel failed:", err));
+  }, [modelIdx, tabId, sdkModels]);
+
   // ── Input submission ────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleSubmit = useCallback(async (text: string, attachments: Attachment[]) => {
@@ -775,10 +794,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
   }, [messages]);
 
   // Derive UI-friendly model/effort lists from SDK data or fallback to hardcoded defaults
-  const models = useMemo(() => {
-    if (sdkModels.length === 0) return DEFAULT_MODELS as readonly { display: string; id: string }[];
-    return sdkModels.map(m => ({ display: m.displayName, id: m.value }));
-  }, [sdkModels]);
+  const models = useMemo(() => resolveModels(sdkModels), [sdkModels]);
 
   const efforts = useMemo(() => {
     if (sdkModels.length === 0) return DEFAULT_EFFORTS;

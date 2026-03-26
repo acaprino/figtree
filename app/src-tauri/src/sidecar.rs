@@ -43,7 +43,7 @@ pub enum AgentEvent {
     Todo { todos: serde_json::Value },
     Autocomplete { suggestions: Vec<String>, seq: u32 },
     RateLimit { utilization: f64 },
-    CommandsInit { commands: serde_json::Value, agents: serde_json::Value },
+    CommandsInit { commands: serde_json::Value, agents: serde_json::Value, models: serde_json::Value },
     TaskStarted { task_id: String, description: String, task_type: String },
     TaskProgress { task_id: String, description: String, total_tokens: u64, tool_uses: u32, duration_ms: u64, last_tool_name: String, summary: String },
     TaskNotification { task_id: String, status: String, summary: String, total_tokens: u64, tool_uses: u32, duration_ms: u64 },
@@ -95,7 +95,7 @@ enum SidecarEvent {
     #[serde(rename = "rateLimit")]
     RateLimit { #[serde(rename = "tabId")] tab_id: String, #[serde(default)] utilization: f64 },
     #[serde(rename = "commands_init")]
-    CommandsInit { #[serde(rename = "tabId")] tab_id: String, commands: Option<serde_json::Value>, agents: Option<serde_json::Value> },
+    CommandsInit { #[serde(rename = "tabId")] tab_id: String, commands: Option<serde_json::Value>, agents: Option<serde_json::Value>, models: Option<serde_json::Value> },
     #[serde(rename = "task_started")]
     TaskStarted { #[serde(rename = "tabId")] tab_id: String, #[serde(rename = "taskId", default)] task_id: String, #[serde(default)] description: String, #[serde(rename = "taskType", default)] task_type: String },
     #[serde(rename = "task_progress")]
@@ -116,7 +116,7 @@ enum SidecarEvent {
     #[serde(rename = "messages")]
     Messages { #[serde(rename = "tabId")] tab_id: String, #[serde(rename = "sessionId", default)] session_id: String, messages: Option<serde_json::Value> },
     #[serde(rename = "commands")]
-    Commands { #[serde(rename = "tabId")] tab_id: String, commands: Option<serde_json::Value>, agents: Option<serde_json::Value> },
+    Commands { #[serde(rename = "tabId")] tab_id: String, commands: Option<serde_json::Value>, agents: Option<serde_json::Value>, models: Option<serde_json::Value> },
     #[serde(rename = "ready")]
     Ready { #[serde(rename = "tabId", default)] tab_id: String },
 }
@@ -369,10 +369,11 @@ impl SidecarManager {
                             }
                             continue;
                         }
-                        SidecarEvent::Commands { commands, agents, .. } => {
+                        SidecarEvent::Commands { commands, agents, models, .. } => {
                             let value = serde_json::json!({
                                 "commands": commands.clone().unwrap_or(serde_json::Value::Array(vec![])),
-                                "agents": agents.clone().unwrap_or(serde_json::Value::Array(vec![]))
+                                "agents": agents.clone().unwrap_or(serde_json::Value::Array(vec![])),
+                                "models": models.clone().unwrap_or(serde_json::Value::Array(vec![]))
                             });
                             if let Some(sender) = oneshots.lock().unwrap_or_else(|e| e.into_inner()).remove(&tab_id) {
                                 let _ = sender.send(value);
@@ -426,10 +427,11 @@ impl SidecarManager {
                             AgentEvent::Todo { todos: todos.unwrap_or(serde_json::Value::Array(vec![])) }
                         }
                         SidecarEvent::RateLimit { utilization, .. } => AgentEvent::RateLimit { utilization },
-                        SidecarEvent::CommandsInit { commands, agents, .. } => {
+                        SidecarEvent::CommandsInit { commands, agents, models, .. } => {
                             AgentEvent::CommandsInit {
                                 commands: commands.unwrap_or(serde_json::Value::Array(vec![])),
                                 agents: agents.unwrap_or(serde_json::Value::Array(vec![])),
+                                models: models.unwrap_or(serde_json::Value::Array(vec![])),
                             }
                         }
                         SidecarEvent::TaskStarted { task_id, description, task_type, .. } => {

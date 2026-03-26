@@ -112,6 +112,10 @@ export async function setAgentPermMode(tabId: string, permMode: string): Promise
   await invoke("agent_set_perm_mode", { tabId, permMode });
 }
 
+export async function setAgentModel(tabId: string, model: string): Promise<void> {
+  await invoke("agent_set_model", { tabId, model });
+}
+
 export async function listAgentSessions(cwd?: string): Promise<SessionInfo[]> {
   return invoke<SessionInfo[]>("list_agent_sessions", { cwd: cwd || null });
 }

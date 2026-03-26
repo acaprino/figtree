@@ -259,18 +259,8 @@ function AppContent() {
   const handleConfigChange = useCallback((tabId: string, update: { modelIdx?: number; effortIdx?: number; permModeIdx?: number }) => {
     const tab = tabsRef.current.find((t) => t.id === tabId);
     if (!tab || tab.type !== "agent") return;
-    // Perm mode changes are synced to sidecar live — no remount needed
-    const needsRestart = update.modelIdx !== undefined || update.effortIdx !== undefined;
-    if (needsRestart) {
-      const sessionId = tab.agentSessionId;
-      updateTab(tabId, {
-        ...update,
-        // Resume the same session so conversation history is preserved
-        resumeSessionId: sessionId || undefined,
-      });
-    } else {
-      updateTab(tabId, update);
-    }
+    // Model and perm mode changes are synced to sidecar live. Effort takes effect on next session.
+    updateTab(tabId, update);
   }, [updateTab]);
 
   // Session panel
@@ -473,7 +463,7 @@ function AppContent() {
               ) : tab.type === "agent" && pluginsLoaded ? (
                 <ErrorBoundary tabId={tab.id} onClose={closeTab}>
                   <AgentView
-                    key={`${tab.id}-${tab.modelIdx ?? 0}-${tab.effortIdx ?? 0}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}
+                    key={`${tab.id}-${tab.resumeSessionId || ""}-${tab.forkSessionId || ""}`}
                     tabId={tab.id}
                     projectPath={tab.projectPath!}
                     modelIdx={tab.modelIdx ?? 0}
