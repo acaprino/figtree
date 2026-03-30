@@ -27,7 +27,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 png = "0.17"
 arboard = { version = "3", features = ["image-data"] }
-notify = "6"
+notify = "8"
 
 raw-window-handle = "0.6"
 tauri-plugin-single-instance = "2"
