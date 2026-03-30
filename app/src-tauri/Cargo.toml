@@ -31,7 +31,7 @@ notify = "6"
 
 raw-window-handle = "0.6"
 tauri-plugin-single-instance = "2"
-webview2-com = "0.38"
+webview2-com = "0.39"
 
 [dependencies.windows]
 version = "0.62"
