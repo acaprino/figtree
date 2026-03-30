@@ -42,32 +42,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "figtree"
-version = "1.0.0"
-dependencies = [
- "arboard",
- "dirs",
- "notify",
- "png 0.17.16",
- "raw-window-handle",
- "regex-lite",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-notification",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tokio",
- "uuid",
- "webview2-com",
- "which",
- "windows 0.62.2",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -507,6 +481,32 @@ dependencies = [
  "num-traits",
  "serde",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "claude-code-gui"
+version = "1.0.0"
+dependencies = [
+ "arboard",
+ "dirs",
+ "notify",
+ "png 0.17.16",
+ "raw-window-handle",
+ "regex-lite",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-notification",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "uuid",
+ "webview2-com",
+ "which",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -4909,9 +4909,9 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "uuid"
-version = "1.22.0"
+version = "1.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a68d3c8f01c0cfa54a75291d83601161799e4a89a39e0929f4b0354d88757a37"
+checksum = "5ac8b6f42ead25368cf5b098aeb3dc8a1a2c05a3eee8a9a1a68c640edbfc79d9"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",
