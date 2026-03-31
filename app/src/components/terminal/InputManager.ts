@@ -6,7 +6,7 @@
 import type { Terminal } from "@xterm/xterm";
 import type { TerminalPalette } from "./themes";
 import type { PermissionSuggestion, AskQuestionItem } from "../../types";
-import { fg, BOLD, DIM, RESET, ICON, ERASE_LINE, cursorColumn, cursorUp, CURSOR_SAVE, CURSOR_RESTORE } from "./AnsiUtils";
+import { fg, BOLD, DIM, RESET, ICON, ERASE_LINE, ERASE_BELOW, cursorColumn, cursorUp, cursorDown, CURSOR_SAVE, CURSOR_RESTORE } from "./AnsiUtils";
 
 export type InputMode = "normal" | "processing" | "ask" | "permission";
 
@@ -54,6 +54,10 @@ export class InputManager {
   // Input line tracking — true when user's prompt line is rendered on screen during processing
   private inputLineOnScreen = false;
 
+  // Wrapped-input tracking — how many physical terminal rows the input occupies
+  private inputRows = 1;
+  private inputCursorRow = 0; // which physical row (0-indexed) the terminal cursor is on
+
   // Disposables
   private disposables: { dispose(): void }[] = [];
 
@@ -79,6 +83,8 @@ export class InputManager {
       this.spinnerPauseTimer = null;
     }
     this.inputLineOnScreen = false;
+    this.inputRows = 1;
+    this.inputCursorRow = 0;
     this.mode = mode;
     if (mode === "normal") {
       this.renderPrompt();
@@ -108,6 +114,13 @@ export class InputManager {
     this.cursorPos = 0;
     this.setMode("ask");
     this.renderAskHint();
+  }
+
+  /** Reset input tracking state after terminal clear (fullRedraw/resize) */
+  resetInputTracking(): void {
+    this.inputLineOnScreen = false;
+    this.inputRows = 1;
+    this.inputCursorRow = 0;
   }
 
   updatePalette(palette: TerminalPalette): void {
@@ -150,7 +163,7 @@ export class InputManager {
    */
   suspendInputLine(): boolean {
     if (!this.inputLineOnScreen || this.buffer.length === 0) return false;
-    this.terminal.write(`\r${ERASE_LINE}`);
+    this.eraseInput();
     this.inputLineOnScreen = false;
     return true;
   }
@@ -161,11 +174,8 @@ export class InputManager {
    */
   resumeInputLine(): void {
     if (this.buffer.length === 0 || this.mode !== "processing") return;
-    const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
-    this.terminal.write(`${prompt}${this.buffer}`);
-    if (this.cursorPos < this.buffer.length) {
-      this.terminal.write(cursorColumn(this.cursorPos + 3));
-    }
+    this.writeInputLine();
+    this.positionInputCursor();
     this.inputLineOnScreen = true;
   }
 
@@ -205,19 +215,32 @@ export class InputManager {
     if (e.ctrlKey && e.key === "c") {
       e.preventDefault();
       if ((this.mode === "normal" || this.mode === "processing") && this.buffer.length > 0) {
-        // Clear the current line
-        this.buffer = "";
-        this.cursorPos = 0;
-        this.inputLineOnScreen = false;
         // During streaming, only clear buffer — don't touch terminal
         if (this.streamingActive && this.mode === "processing") {
+          this.buffer = "";
+          this.cursorPos = 0;
+          this.inputLineOnScreen = false;
+          this.inputRows = 1;
+          this.inputCursorRow = 0;
           return;
         }
         if (this.mode === "processing") {
-          // Go back to spinner
-          this.terminal.write(`\r${ERASE_LINE}`);
+          // Erase wrapped input, go back to spinner
+          this.eraseInput();
+          this.buffer = "";
+          this.cursorPos = 0;
+          this.inputLineOnScreen = false;
           this.startSpinner();
         } else {
+          // Normal mode: move to end of wrapped text, then new line + prompt
+          const endRow = this.inputRows - 1;
+          if (this.inputCursorRow < endRow) {
+            this.terminal.write(cursorDown(endRow - this.inputCursorRow));
+          }
+          this.buffer = "";
+          this.cursorPos = 0;
+          this.inputRows = 1;
+          this.inputCursorRow = 0;
           this.terminal.write("\r\n");
           this.renderPrompt();
         }
@@ -291,8 +314,8 @@ export class InputManager {
       this.buffer = this.buffer.slice(0, this.cursorPos);
       if (this.streamingActive && this.mode === "processing") return; // buffer-only during streaming
       if (this.mode === "processing" && this.buffer.length === 0) {
+        this.eraseInput();
         this.inputLineOnScreen = false;
-        this.terminal.write(`\r${ERASE_LINE}`);
         this.startSpinner();
         return;
       }
@@ -302,15 +325,23 @@ export class InputManager {
 
     if (data === "\x15") {
       // Ctrl+U — clear line
-      this.buffer = "";
-      this.cursorPos = 0;
-      if (this.streamingActive && this.mode === "processing") return; // buffer-only during streaming
+      if (this.streamingActive && this.mode === "processing") {
+        this.buffer = "";
+        this.cursorPos = 0;
+        this.inputRows = 1;
+        this.inputCursorRow = 0;
+        return; // buffer-only during streaming
+      }
       if (this.mode === "processing") {
+        this.eraseInput();
+        this.buffer = "";
+        this.cursorPos = 0;
         this.inputLineOnScreen = false;
-        this.terminal.write(`\r${ERASE_LINE}`);
         this.startSpinner();
         return;
       }
+      this.buffer = "";
+      this.cursorPos = 0;
       this.redrawLine();
       return;
     }
@@ -347,6 +378,8 @@ export class InputManager {
     this.cursorPos = 0;
     this.historyIdx = -1;
     this.inputLineOnScreen = false;
+    this.inputRows = 1;
+    this.inputCursorRow = 0;
 
     // During streaming, submit silently — don't write to terminal or start spinner
     if (this.streamingActive && this.mode === "processing") {
@@ -388,9 +421,6 @@ export class InputManager {
     }
 
     // If typing while processing, pause spinner and show prompt.
-    // Batch the newline + redraw into a single terminal.write to prevent
-    // interleaving with concurrent streaming writes from TerminalRenderer.
-    let prefix = "";
     if (this.mode === "processing" && this.buffer.length === 0) {
       const hadTwoLineSpinner = this.spinnerOnScreen;
       this.stopSpinner();
@@ -398,15 +428,19 @@ export class InputManager {
       // stopSpinner already positioned cursor on spinner line — no extra \r\n.
       // Otherwise, need \r\n to move below the last output line.
       if (!hadTwoLineSpinner) {
-        prefix = "\r\n";
+        this.terminal.write("\r\n");
       }
+      this.inputRows = 1;
+      this.inputCursorRow = 0;
+    } else {
+      // Erase old wrapped input before updating buffer
+      this.eraseInput();
     }
+
     this.buffer = this.buffer.slice(0, this.cursorPos) + text + this.buffer.slice(this.cursorPos);
     this.cursorPos += text.length;
-    const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
-    const line = `\r${ERASE_LINE}${prompt}${this.buffer}`;
-    const cursor = this.cursorPos < this.buffer.length ? cursorColumn(this.cursorPos + 3) : "";
-    this.terminal.write(prefix + line + cursor);
+    this.writeInputLine();
+    this.positionInputCursor();
     if (this.mode === "processing") {
       this.inputLineOnScreen = true;
     }
@@ -418,9 +452,9 @@ export class InputManager {
     this.cursorPos--;
     if (this.streamingActive && this.mode === "processing") return; // buffer-only during streaming
     if (this.mode === "processing" && this.buffer.length === 0) {
-      // Cleared all text while processing — erase prompt line, restart spinner
+      // Cleared all text while processing — erase wrapped input, restart spinner
+      this.eraseInput();
       this.inputLineOnScreen = false;
-      this.terminal.write(`\r${ERASE_LINE}`);
       this.startSpinner();
       return;
     }
@@ -432,8 +466,8 @@ export class InputManager {
     this.buffer = this.buffer.slice(0, this.cursorPos) + this.buffer.slice(this.cursorPos + 1);
     if (this.streamingActive && this.mode === "processing") return; // buffer-only during streaming
     if (this.mode === "processing" && this.buffer.length === 0) {
+      this.eraseInput();
       this.inputLineOnScreen = false;
-      this.terminal.write(`\r${ERASE_LINE}`);
       this.startSpinner();
       return;
     }
@@ -451,8 +485,8 @@ export class InputManager {
     this.cursorPos = pos;
     if (this.streamingActive && this.mode === "processing") return; // buffer-only during streaming
     if (this.mode === "processing" && this.buffer.length === 0) {
+      this.eraseInput();
       this.inputLineOnScreen = false;
-      this.terminal.write(`\r${ERASE_LINE}`);
       this.startSpinner();
       return;
     }
@@ -464,7 +498,12 @@ export class InputManager {
     if (newPos !== this.cursorPos) {
       this.cursorPos = newPos;
       if (!(this.streamingActive && this.mode === "processing")) {
-        this.terminal.write(cursorColumn(this.cursorPos + 3)); // +3 for "❯ " prompt (2 chars + 1-based column)
+        if (this.inputRows > 1) {
+          // Wrapped input — redraw to reposition cursor across rows
+          this.redrawLine();
+        } else {
+          this.terminal.write(cursorColumn(this.cursorPos + 3)); // +3 for "❯ " prompt (2 chars + 1-based column)
+        }
       }
     }
   }
@@ -472,7 +511,11 @@ export class InputManager {
   private moveCursorTo(pos: number): void {
     this.cursorPos = Math.max(0, Math.min(this.buffer.length, pos));
     if (!(this.streamingActive && this.mode === "processing")) {
-      this.terminal.write(cursorColumn(this.cursorPos + 3));
+      if (this.inputRows > 1) {
+        this.redrawLine();
+      } else {
+        this.terminal.write(cursorColumn(this.cursorPos + 3));
+      }
     }
   }
 
@@ -532,7 +575,10 @@ export class InputManager {
         const completion = suggestions[0].slice(token.length);
         this.insertText(completion);
       } else {
-        // Multiple matches — show below prompt
+        // Multiple matches — show below prompt, then re-render prompt below suggestions
+        // Reset row tracking: old prompt scrolls into history, cursor is on a fresh line
+        this.inputRows = 1;
+        this.inputCursorRow = 0;
         this.terminal.write("\r\n");
         const cols = this.terminal.cols;
         const maxLen = Math.max(...suggestions.map(s => s.length)) + 2;
@@ -547,9 +593,12 @@ export class InputManager {
         // Find common prefix for partial completion
         const common = commonPrefix(suggestions);
         if (common.length > token.length) {
+          this.inputRows = 1;
+          this.inputCursorRow = 0;
           this.insertText(common.slice(token.length));
+        } else {
+          this.renderPrompt();
         }
-        this.renderPrompt();
       }
     } catch {
       // Autocomplete failed silently
@@ -561,24 +610,56 @@ export class InputManager {
   // ── Prompt rendering ────────────────────────────────────────────
 
   renderPrompt(): void {
-    const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
-    this.terminal.write(`\r${ERASE_LINE}${prompt}${this.buffer}`);
-    // Position cursor correctly
-    if (this.cursorPos < this.buffer.length) {
-      this.terminal.write(cursorColumn(this.cursorPos + 3));
-    }
+    this.eraseInput();
+    this.writeInputLine();
+    this.positionInputCursor();
   }
 
   private redrawLine(): void {
     if (this.streamingActive && this.mode === "processing") return; // suppress during streaming
-    const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
-    this.terminal.write(`\r${ERASE_LINE}${prompt}${this.buffer}`);
-    if (this.cursorPos < this.buffer.length) {
-      this.terminal.write(cursorColumn(this.cursorPos + 3));
-    }
+    this.eraseInput();
+    this.writeInputLine();
+    this.positionInputCursor();
     if (this.mode === "processing") {
       this.inputLineOnScreen = true;
     }
+  }
+
+  /** Erase all physical rows the current input occupies (handles wrapped text) */
+  private eraseInput(): void {
+    if (this.inputCursorRow > 0) {
+      this.terminal.write(cursorUp(this.inputCursorRow));
+    }
+    this.terminal.write(`\r${ERASE_BELOW}`);
+    this.inputRows = 1;
+    this.inputCursorRow = 0;
+  }
+
+  /** Write prompt + buffer to the terminal and update row tracking */
+  private writeInputLine(): void {
+    const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
+    this.terminal.write(`${prompt}${this.buffer}`);
+    const cols = this.terminal.cols || 80;
+    const N = 2 + this.buffer.length; // "❯ " = 2 visible chars
+    this.inputRows = Math.max(1, Math.ceil(N / cols));
+    // After writing N chars, cursor row depends on whether N fills the row exactly
+    // When N is an exact multiple of cols, xterm wraps cursor to column 0 of next row
+    this.inputCursorRow = N > 0 && N % cols === 0 ? N / cols : Math.floor(N / cols);
+    // Ensure inputRows accounts for cursor-wrap row
+    if (this.inputCursorRow >= this.inputRows) {
+      this.inputRows = this.inputCursorRow + 1;
+    }
+  }
+
+  /** Position cursor within wrapped input (after writeInputLine) */
+  private positionInputCursor(): void {
+    if (this.cursorPos >= this.buffer.length) return; // already at end
+    const cols = this.terminal.cols || 80;
+    const targetRow = Math.floor((2 + this.cursorPos) / cols);
+    const rowsUp = this.inputCursorRow - targetRow;
+    if (rowsUp > 0) this.terminal.write(cursorUp(rowsUp));
+    this.terminal.write(cursorColumn(((2 + this.cursorPos) % cols) + 1));
+    this.inputCursorRow = targetRow;
   }
 
   // ── Processing mode (spinner) ───────────────────────────────────

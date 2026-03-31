@@ -294,6 +294,7 @@ export class TerminalRenderer {
       this.deferredUpdates = [];
     }
 
+    this.inputManager?.resetInputTracking();
     this.terminal.clear();
     this.terminal.write("\x1b[H\x1b[2J");
 

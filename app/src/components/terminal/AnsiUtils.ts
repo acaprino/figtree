@@ -62,6 +62,7 @@ export const CURSOR_RESTORE = `${ESC}8`;
 // ── Erase ──────────────────────────────────────────────────────────
 export const ERASE_LINE = `${CSI}2K`;
 export const ERASE_TO_END = `${CSI}0K`;
+export const ERASE_BELOW = `${CSI}0J`;
 export const ERASE_SCREEN = `${CSI}2J`;
 
 // ── Sanitization ──────────────────────────────────────────────────
