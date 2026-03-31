@@ -183,6 +183,7 @@ export default memo(function XTermView(props: SessionViewProps) {
           const askBlock = b as import("./terminal/blocks/AskBlock").AskBlock;
           if (!askBlock.resolved) {
             inputManager.enterAskMode(askBlock.questions);
+            if (isActiveRef.current) term.focus();
           }
         }
       }

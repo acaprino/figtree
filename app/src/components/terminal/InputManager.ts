@@ -104,7 +104,10 @@ export class InputManager {
     this.askStep = 0;
     this.askAnswers = {};
     this.askSelected = 0;
+    this.buffer = "";
+    this.cursorPos = 0;
     this.setMode("ask");
+    this.renderAskHint();
   }
 
   updatePalette(palette: TerminalPalette): void {
@@ -650,9 +653,54 @@ export class InputManager {
 
   // ── Ask mode ────────────────────────────────────────────────────
 
+  private renderAskHint(): void {
+    const q = this.askQuestions[this.askStep];
+    if (!q) return;
+    if (q.options.length > 0) {
+      const maxKey = Math.min(q.options.length, 9);
+      const extra = q.options.length > 9 ? ", arrows for more" : "";
+      const hint = `  ${DIM}Press 1-${maxKey} to select${extra}, Enter to confirm${RESET}`;
+      this.terminal.write(hint);
+    } else {
+      // Free-text question — show input prompt
+      const prompt = `${fg(this.palette.accent)}${BOLD}${ICON.prompt}${RESET} `;
+      this.terminal.write(`\r\n${prompt}`);
+    }
+  }
+
   private handleAskData(data: string): void {
     const q = this.askQuestions[this.askStep];
     if (!q) return;
+
+    // Free-text question (no options) — allow typing
+    if (q.options.length === 0) {
+      if (data === "\r" || data === "\n") {
+        const text = this.buffer.trim();
+        if (!text) return; // Don't submit empty answer
+        this.askAnswers[String(this.askStep)] = text;
+        this.terminal.write("\r\n");
+        this.buffer = "";
+        this.cursorPos = 0;
+        this.advanceAskStep();
+        return;
+      }
+      if (data === "\x7f" || data === "\b") {
+        if (this.cursorPos > 0) {
+          this.buffer = this.buffer.slice(0, this.cursorPos - 1) + this.buffer.slice(this.cursorPos);
+          this.cursorPos--;
+          this.redrawLine();
+        }
+        return;
+      }
+      // Filter control chars and escape sequences
+      if (data.charCodeAt(0) < 0x20 && data.length === 1) return;
+      if (data.startsWith("\x1b")) return;
+      const clean = data.replace(/\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b[78]|\x1b/g, "")
+        .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "");
+      if (!clean) return;
+      this.insertText(clean);
+      return;
+    }
 
     // Number keys select option
     const num = parseInt(data, 10);
@@ -665,9 +713,7 @@ export class InputManager {
 
     // Enter confirms current selection
     if (data === "\r" || data === "\n") {
-      if (q.options.length > 0) {
-        this.askAnswers[String(this.askStep)] = q.options[this.askSelected].label;
-      }
+      this.askAnswers[String(this.askStep)] = q.options[this.askSelected].label;
       this.advanceAskStep();
       return;
     }
@@ -691,6 +737,9 @@ export class InputManager {
       this.setMode("processing");
     } else {
       this.askSelected = 0;
+      this.buffer = "";
+      this.cursorPos = 0;
+      this.renderAskHint();
     }
   }
 }
