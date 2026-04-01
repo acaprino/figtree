@@ -764,12 +764,14 @@ export class InputManager {
       this.spinnerInterval = null;
     }
     if (this.spinnerOnScreen) {
-      // Cursor is on line below spinner. Clear it, go up to spinner line, clear that too.
-      this.terminal.write(`\r${ERASE_LINE}` + cursorUp(1) + `\r${ERASE_LINE}`);
+      // Cursor is on line below spinner. Move up to spinner line, then erase
+      // from there to end of display — clears both spinner and cursor line
+      // without leaving empty rows in the terminal buffer.
+      this.terminal.write(cursorUp(1) + `\r${ERASE_BELOW}`);
       this.spinnerOnScreen = false;
     } else if (wasRunning) {
       // Spinner was on current line but never moved to two-line layout — just clear
-      this.terminal.write(`\r${ERASE_LINE}`);
+      this.terminal.write(`\r${ERASE_BELOW}`);
     }
   }
 
