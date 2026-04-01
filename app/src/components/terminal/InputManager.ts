@@ -384,8 +384,9 @@ export class InputManager {
     // Ignore escape sequences
     if (data.startsWith("\x1b")) return;
 
-    // Strip embedded ANSI escapes from pasted text
+    // Strip embedded ANSI escapes from pasted text, flatten multiline to single line
     const clean = data.replace(/\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07|\x1b[78]|\x1b/g, "")
+      .replace(/\r\n|\r|\n/g, " ") // flatten multiline paste (matches native CLI behavior)
       .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, ""); // strip non-printable control chars
     if (!clean) return;
 
