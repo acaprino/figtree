@@ -449,9 +449,12 @@ export class InputManager {
       this.inputCursorRow = 0;
     } else {
       // Fast path: single-line input that stays single-line — no erase/redraw flicker
+      // Guard: only for ASCII — CJK/fullwidth chars occupy 2 terminal columns but
+      // have .length === 1, so the width check would be wrong and cause display corruption.
       const cols = this.terminal.cols || 80;
       const newLen = 2 + this.buffer.length + text.length; // "❯ " = 2 visible chars
-      if (this.inputRows <= 1 && newLen <= cols) {
+      const asciiOnly = !/[^\x20-\x7e]/.test(text) && !/[^\x20-\x7e]/.test(this.buffer);
+      if (asciiOnly && this.inputRows <= 1 && newLen <= cols) {
         if (this.cursorPos === this.buffer.length) {
           // Append at end — just write the new chars
           this.buffer += text;
@@ -493,8 +496,8 @@ export class InputManager {
       this.startSpinner();
       return;
     }
-    // Fast path: single-line — no erase/redraw flicker
-    if (this.inputRows <= 1) {
+    // Fast path: single-line ASCII — wide chars need full redraw for correct cursor math
+    if (this.inputRows <= 1 && !/[^\x20-\x7e]/.test(this.buffer)) {
       if (wasAtEnd) {
         // Delete at end — erase last visible char
         this.terminal.write("\b \b");
@@ -518,8 +521,8 @@ export class InputManager {
       this.startSpinner();
       return;
     }
-    // Fast path: single-line — rewrite from cursor, erase trailing char
-    if (this.inputRows <= 1) {
+    // Fast path: single-line ASCII — wide chars need full redraw for correct cursor math
+    if (this.inputRows <= 1 && !/[^\x20-\x7e]/.test(this.buffer)) {
       const tail = this.buffer.slice(this.cursorPos);
       this.terminal.write(tail + ERASE_TO_END + (tail.length > 0 ? cursorBack(tail.length) : ""));
       return;
