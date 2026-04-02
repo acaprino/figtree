@@ -428,7 +428,11 @@ export function useSessionController(props: SessionControllerProps): SessionCont
           const newMembers = memberExists ? prev.members.map(m =>
             m.agentId === event.taskId ? { ...m, status: "working" as const } : m
           ) : [...prev.members, { agentId: event.taskId, name: event.taskType || event.description?.slice(0, 40) || event.taskId, role: "teammate" as const, status: "working" as const }];
-          return { active: true, members: newMembers, tasks: [...prev.tasks, newTask], messages: prev.messages };
+          const newTasks = [...prev.tasks, newTask];
+          // Only mark team as active when there are 2+ concurrent members (real team).
+          // A single subagent (Agent tool) stays in Tasks sidebar only.
+          const workingCount = newMembers.filter(m => m.status === "working").length;
+          return { active: workingCount >= 2, members: newMembers, tasks: newTasks, messages: prev.messages };
         });
       } else if (event.type === "taskProgress") {
         agentTasksHook.onTaskProgress(event.taskId, event.description, event.totalTokens, event.toolUses, event.durationMs, event.lastToolName, event.summary);
