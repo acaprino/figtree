@@ -11,6 +11,7 @@ export class ToolBlock implements Block {
   status: "pending" | "success" | "fail" = "pending";
   output?: string;
   progress?: string;
+  collapsed = false;
   readonly toolUseId?: string;
 
   constructor(
@@ -53,12 +54,16 @@ export class ToolBlock implements Block {
     }
     const command = obj.command as string || "";
     if (command) {
-      return sanitizeAgentText(command.length > 60 ? command.slice(0, 57) + "..." : command);
+      // Flatten multiline commands to single line, truncate
+      const flat = command.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+      return sanitizeAgentText(flat.length > 60 ? flat.slice(0, 57) + "..." : flat);
     }
     return "";
   }
 
   render(_cols: number, palette: TerminalPalette): string {
+    if (this.collapsed) return "";
+
     const icon = this.statusIcon(palette);
     const summary = this.inputSummary();
     const toolLabel = summary ? `${this.tool} ${DIM}${summary}${RESET}` : this.tool;

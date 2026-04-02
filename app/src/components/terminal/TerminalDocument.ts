@@ -189,9 +189,14 @@ export class TerminalDocument {
     }
   }
 
+  private static readonly MAX_VISIBLE_TOOLS = 5;
+
   handleToolUse(tool: string, input: unknown, toolUseId?: string): void {
     this.finalizeStreaming();
     this.finalizeThinking();
+
+    // Compact older consecutive tool blocks to keep output clean
+    this.compactToolBlocks();
 
     // Decide if this is a diff-rendering tool
     if (DIFF_TOOLS.has(tool)) {
@@ -208,6 +213,53 @@ export class TerminalDocument {
     const block = new ToolBlock(this.nextId(), tool, input, toolUseId);
     this.addBlock(block);
     if (toolUseId) this.toolUseIdMap.set(toolUseId, block);
+  }
+
+  /** Collapse older consecutive tool/diff blocks when there are too many visible */
+  private compactToolBlocks(): void {
+    // Count consecutive non-collapsed tool/diff blocks from the end
+    let visibleTools = 0;
+    for (let i = this.blocks.length - 1; i >= 0; i--) {
+      const b = this.blocks[i];
+      if ((b.type === "tool" || b.type === "diff") && !(b as ToolBlock).collapsed) {
+        visibleTools++;
+      } else {
+        break; // stop at first non-tool block
+      }
+    }
+
+    if (visibleTools < TerminalDocument.MAX_VISIBLE_TOOLS) return;
+
+    // Collapse the oldest ones in this run, keeping only the last (MAX-1) visible
+    // (the new block about to be added will be the MAX-th)
+    const toCollapse = visibleTools - (TerminalDocument.MAX_VISIBLE_TOOLS - 1);
+    let collapsed = 0;
+    for (let i = this.blocks.length - 1; i >= 0 && collapsed < visibleTools; i--) {
+      const b = this.blocks[i];
+      if ((b.type !== "tool" && b.type !== "diff") || (b as ToolBlock).collapsed) break;
+      // Collapse from the oldest in the run
+      if (collapsed < toCollapse) {
+        // This is one of the oldest — find it by scanning from the START of the run
+      }
+    }
+
+    // Simpler: find the start of the consecutive run, collapse from there
+    let runStart = this.blocks.length - 1;
+    while (runStart > 0) {
+      const prev = this.blocks[runStart - 1];
+      if ((prev.type === "tool" || prev.type === "diff") && !(prev as ToolBlock).collapsed) {
+        runStart--;
+      } else break;
+    }
+
+    // Collapse first `toCollapse` blocks in the run
+    for (let i = runStart; i < runStart + toCollapse && i < this.blocks.length; i++) {
+      const b = this.blocks[i] as ToolBlock;
+      if (!b.collapsed) {
+        b.collapsed = true;
+        this.updateBlock(b); // trigger re-render (will render as "")
+      }
+    }
   }
 
   handleToolResult(tool: string, output: string, success: boolean, toolUseId?: string): void {

@@ -9,6 +9,7 @@ export class DiffBlock implements Block {
   lineCount = 0;
   frozen = false;
   status: "pending" | "success" | "fail" = "pending";
+  collapsed = false;
   additions = 0;
   deletions = 0;
 
@@ -45,6 +46,8 @@ export class DiffBlock implements Block {
   }
 
   render(cols: number, palette: TerminalPalette): string {
+    if (this.collapsed) return "";
+
     const icon = this.statusIcon(palette);
     const fileName = this.filePath.split(/[/\\]/).pop() || this.filePath;
     const stats = this.additions || this.deletions
