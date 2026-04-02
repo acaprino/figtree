@@ -235,7 +235,6 @@ export const ICON = {
   warning: "\u26a0",   // ⚠
   arrow_right: "\u25b8", // ▸
   arrow_down: "\u25be",  // ▾
-  gutter: "\u23bf",    // ⎿
   bullet: "\u25cf",    // ●
 } as const;
 

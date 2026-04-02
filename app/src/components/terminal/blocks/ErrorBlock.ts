@@ -17,7 +17,7 @@ export class ErrorBlock implements Block {
 
   render(cols: number, palette: TerminalPalette): string {
     const prefix = `${fg(palette.red)}${BOLD}ERROR${RESET} ${fg(palette.red)}[${this.code}]${RESET} `;
-    const prefixLen = 8 + this.code.length + 3;
+    const prefixLen = 9 + this.code.length; // "ERROR " (6) + "[" (1) + code + "] " (2)
     const lines = wordWrap(sanitizeAgentText(this.message), cols - prefixLen);
 
     const rendered = lines.map((line, i) =>

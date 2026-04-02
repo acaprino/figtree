@@ -1,6 +1,6 @@
 import type { Block } from "./Block";
 import type { TerminalPalette } from "../themes";
-import { fg, DIM, RESET } from "../AnsiUtils";
+import { fg, DIM, RESET, horizontalRule } from "../AnsiUtils";
 
 export class StatusBlock implements Block {
   readonly type = "status";
@@ -15,7 +15,7 @@ export class StatusBlock implements Block {
     public model: string,
   ) {}
 
-  render(_cols: number, palette: TerminalPalette): string {
-    return `${DIM}${fg(palette.textDim)}${this.status}${RESET}\r\n`;
+  render(cols: number, palette: TerminalPalette): string {
+    return `${horizontalRule(this.status, cols, palette.textDim)}\r\n`;
   }
 }

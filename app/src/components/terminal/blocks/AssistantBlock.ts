@@ -34,11 +34,11 @@ export class AssistantBlock implements Block {
         if (!inCodeBlock) {
           inCodeBlock = true;
           codeLang = rawLine.slice(3).trim();
-          lines.push(`${fg(palette.textDim)}${"─".repeat(Math.min(cols - 2, 40))}${codeLang ? ` ${codeLang}` : ""}${RESET}`);
+          lines.push(`  ${fg(palette.textDim)}${"─".repeat(Math.min(cols - 4, 38))}${codeLang ? ` ${codeLang}` : ""}${RESET}`);
         } else {
           inCodeBlock = false;
           codeLang = "";
-          lines.push(`${fg(palette.textDim)}${"─".repeat(Math.min(cols - 2, 40))}${RESET}`);
+          lines.push(`  ${fg(palette.textDim)}${"─".repeat(Math.min(cols - 4, 38))}${RESET}`);
         }
         continue;
       }

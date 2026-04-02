@@ -38,10 +38,14 @@ export class ToolBlock implements Block {
   private inputSummary(): string {
     if (!this.input || typeof this.input !== "object") return "";
     const obj = this.input as Record<string, unknown>;
-    const path = (obj.file_path as string) || (obj.path as string) || (obj.command as string) || "";
-    if (path) {
-      const short = path.length > 60 ? "..." + path.slice(-57) : path;
-      return sanitizeAgentText(short);
+    const filePath = (obj.file_path as string) || (obj.path as string) || "";
+    if (filePath) {
+      const basename = filePath.split(/[/\\]/).pop() || filePath;
+      return sanitizeAgentText(basename.length > 60 ? "..." + basename.slice(-57) : basename);
+    }
+    const command = obj.command as string || "";
+    if (command) {
+      return sanitizeAgentText(command.length > 60 ? command.slice(0, 57) + "..." : command);
     }
     return "";
   }

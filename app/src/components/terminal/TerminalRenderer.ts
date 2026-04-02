@@ -296,6 +296,8 @@ export class TerminalRenderer {
       this.deferredUpdates = [];
     }
 
+    // Stop spinner interval to prevent writes during redraw
+    this.inputManager?.suspendAll();
     this.inputManager?.resetInputTracking();
     this.terminal.clear();
     this.terminal.write("\x1b[H\x1b[2J");
@@ -316,6 +318,9 @@ export class TerminalRenderer {
       this.document.commitBlockLines(block, lineCount);
       currentLine += lineCount;
     }
+
+    // Resume spinner + input after redraw
+    this.inputManager?.resumeAll();
   }
 
   // ── Resize handling ─────────────────────────────────────────────

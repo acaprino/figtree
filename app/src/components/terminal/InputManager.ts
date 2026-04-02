@@ -78,8 +78,12 @@ export class InputManager {
   // ── Public API ──────────────────────────────────────────────────
 
   setMode(mode: InputMode): void {
-    this.stopSpinner();
-    // Clear any pending restart timer
+    // Erase all ephemeral content (spinner + input) atomically
+    this.suspendAll();
+    if (this.spinnerInterval) {
+      clearInterval(this.spinnerInterval);
+      this.spinnerInterval = null;
+    }
     if (this.spinnerPauseTimer) {
       clearTimeout(this.spinnerPauseTimer);
       this.spinnerPauseTimer = null;
@@ -174,10 +178,14 @@ export class InputManager {
     const hadSpinner = this.spinnerOnScreen;
     if (!hadInput && !hadSpinner) return false;
 
-    // Stop spinner interval (don't write erase — we handle it below)
+    // Stop spinner interval and pending restart timer
     if (this.spinnerInterval) {
       clearInterval(this.spinnerInterval);
       this.spinnerInterval = null;
+    }
+    if (this.spinnerPauseTimer) {
+      clearTimeout(this.spinnerPauseTimer);
+      this.spinnerPauseTimer = null;
     }
 
     // Calculate how far up we need to go from current cursor position
@@ -200,8 +208,8 @@ export class InputManager {
    */
   resumeAll(): void {
     if (this.mode !== "processing" || this.streamingActive) return;
-    // Re-render spinner
-    this.renderSpinner();
+    // Restart spinner with animation (not just a single frame)
+    this.startSpinner();
     // Re-render input below spinner (if user has typed something)
     if (this.buffer.length > 0) {
       this.writeInputLine();
@@ -427,7 +435,6 @@ export class InputManager {
       return;
     }
 
-    this.terminal.write("\r\n");
     if (text) {
       // Add to history (avoid duplicates at top)
       if (this.history.length === 0 || this.history[this.history.length - 1] !== text) {
@@ -436,12 +443,17 @@ export class InputManager {
       }
       const wasProcessing = this.mode === "processing";
       if (!wasProcessing) {
+        this.terminal.write("\r\n");
         this.setMode("processing");
       } else {
-        // Queuing while agent is working — restart spinner
+        // Queuing while agent is working — erase old spinner+input, restart
+        this.suspendAll();
+        this.terminal.write("\r\n");
         this.startSpinner();
       }
       this.callbacks.onSubmit(text);
+    } else {
+      this.terminal.write("\r\n");
     }
   }
 
