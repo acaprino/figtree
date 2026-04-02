@@ -106,9 +106,13 @@ export class TerminalRenderer {
     if (block.type === "tool" || block.type === "diff") {
       const toolName = (block as ToolBlock).tool;
       const input = (block as ToolBlock).input as Record<string, unknown> | null;
-      const path = input?.file_path || input?.path || input?.command || "";
-      const summary = path ? String(path).split(/[/\\]/).pop() : "";
-      this.inputManager?.setSpinnerVerb(summary ? `${toolName}: ${summary}` : toolName);
+      const filePath = input?.file_path || input?.path || "";
+      if (filePath) {
+        const basename = String(filePath).split(/[/\\]/).pop() || "";
+        this.inputManager?.setSpinnerVerb(`${toolName}: ${basename}`);
+      } else {
+        this.inputManager?.setSpinnerVerb(toolName);
+      }
     }
 
     // Streaming assistant block: don't render yet, text comes via streamAppend
