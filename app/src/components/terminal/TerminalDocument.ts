@@ -293,7 +293,7 @@ export class TerminalDocument {
     }
   }
 
-  handleProgress(tool: string, message: string): void {
+  handleProgress(message: string): void {
     // Update the last pending tool block with progress info
     for (let i = this.blocks.length - 1; i >= 0; i--) {
       const b = this.blocks[i];

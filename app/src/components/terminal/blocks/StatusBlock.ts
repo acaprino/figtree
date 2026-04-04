@@ -1,6 +1,6 @@
 import type { Block } from "./Block";
 import type { TerminalPalette } from "../themes";
-import { fg, DIM, RESET, horizontalRule } from "../AnsiUtils";
+import { horizontalRule } from "../AnsiUtils";
 
 export class StatusBlock implements Block {
   readonly type = "status";

@@ -408,7 +408,7 @@ export function useSessionController(props: SessionControllerProps): SessionCont
         onExitRef.current(tabIdRef.current, event.code);
       } else if (event.type === "progress") {
         onTaglineChangeRef.current?.(tabIdRef.current, event.message);
-        document.handleProgress(event.tool, event.message);
+        document.handleProgress(event.message);
       } else if (event.type === "todo") {
         setMessages(prev => {
           const existing = prev.findIndex(m => m.role === "todo");
