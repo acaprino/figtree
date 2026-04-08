@@ -490,7 +490,7 @@ dependencies = [
  "arboard",
  "dirs",
  "notify",
- "png 0.17.16",
+ "png 0.18.1",
  "raw-window-handle",
  "regex-lite",
  "serde",
